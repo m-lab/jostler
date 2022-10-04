@@ -1,0 +1,42 @@
+linters-settings:
+  gocyclo:
+    min-complexity: 13
+  cyclop:
+    max-complexity: 13
+linters:
+  enable-all: true
+  disable:
+    - bodyclose # because of go 1.18
+    - contextcheck # because of go 1.18
+    - deadcode # replaced by unused
+    - exhaustivestruct # deprecated
+    - exhaustruct
+    - forbidigo
+    - gci
+    - gochecknoglobals
+    - gochecknoinits
+    - godot
+    - goerr113
+    - gofumpt
+    - golint
+    - gomnd
+    - gosec
+    - ifshort
+    - interfacer
+    - lll
+    - maligned
+    - nilerr
+    - nlreturn
+    - noctx
+    - nosnakecase # replaced by revive(var-naming)
+    - rowserrcheck
+    - scopelint
+    - sqlclosecheck
+    - structcheck
+    - tparallel
+    - unparam
+    - varcheck # replaced by unused
+    - varnamelen
+    - wastedassign
+    - wrapcheck
+    - wsl
