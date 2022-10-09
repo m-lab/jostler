@@ -1,13 +1,13 @@
 // Package uploadbundle bundles multiple JSON files on the local
 // filesystem into a single JSON Lines (JSONL) file and uploads the bundle
-// to Google Could Storage (GCS).
+// to Google Cloud Storage (GCS).
 //
 // The local files should:
 //
 //  1. Be in date subdirectories (<yyyy>/<mm>/<dd>) of a data directory
 //     configured via BundleConfig.DataDir.
-//  2. Have pathnames that conform to regexp `[^a-zA-Z0-9/:._-]` and
-//     not start with dot ('.') or have consecutive dots.
+//  2. Have basenames conforming to regexp ^[a-zA-Z0-9][a-zA-Z0-9:._-]*.json
+//     and not have consecutive dots.
 //  3. In proper JSON format with ".json" extension.
 //  4. Be smaller than the maximum size of a bundle (BundleConfig.SizeMax).
 //
@@ -58,7 +58,7 @@ type BundleConfig struct {
 var verbose = func(fmt string, args ...interface{}) {}
 
 // Verbose provides a convenient way for the caller to enable verbose
-// printing and control its format (mostfly for debugging).
+// printing and control its format (mostly for debugging).
 func Verbose(v func(string, ...interface{})) {
 	verbose = v
 }
