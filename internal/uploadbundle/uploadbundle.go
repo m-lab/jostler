@@ -19,10 +19,28 @@ package uploadbundle
 import (
 	"context"
 	"path/filepath"
+	"sync"
 	"time"
 
-	"github.com/m-lab/jostler/watchdir"
+	"github.com/m-lab/jostler/internal/watchdir"
 )
+
+// StandardColumns defines the standard columns included in every line
+// (row) along with the raw data from the measurement service.
+type StandardColumns struct {
+	Date     string   `json:"date"`     // yyyy/mm/dd pathname component of JSON file
+	Archiver Archiver `json:"archiver"` // archiver details
+	Raw      string   `json:"raw"`      // file contents is already in JSON format
+}
+
+// Archiver defines (1) the running instance of the program and (2)
+// where the bundle is archived and which files it includes.
+type Archiver struct {
+	Version    string // running version of this program
+	GitCommit  string // git commit sha1 of this program
+	ArchiveURL string // GCS object name of the bundle
+	Filename   string // pathname of the file in the bundle
+}
 
 // UploadBundle defines configuration options and other fields that are
 // common to all instances of JSONL bundles (see jsonlBundle).
@@ -48,6 +66,7 @@ type GCSConfig struct {
 
 // BundleConfig defines bundle configuration options.
 type BundleConfig struct {
+	Datatype  string        // datatype (e.g., ndt)
 	DataDir   string        // path to datatype subdirectory on local disk (e.g., /cache/data/<experiment>/<datatype>)
 	GoldenRow string        // datatype's golden row
 	SizeMax   uint          // bundle will be uploaded when it reaches this size
@@ -82,8 +101,23 @@ func (ub *UploadBundle) BundleAndUpload(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			// We are all done.
-			verbose("context canceled; returning")
+			verbose("bundle and upload context canceled")
 			return
 		}
 	}
+}
+
+// UploadActiveBundles uploads all active bundles regardless of their
+// age and size.  This is primarily meant to provide a graceful shutdown.
+func (ub *UploadBundle) UploadActiveBundles(ctx context.Context, wg *sync.WaitGroup) {
+	defer wg.Done()
+	verbose("start uploading all active %v bundles", ub.bundleConf.Datatype)
+	if ub.bundleConf.Datatype == "foo1" {
+		verbose("waiting 10 seconds for foo1 bundles")
+		time.Sleep(10 * time.Second)
+	} else {
+		verbose("waiting 15 seconds for bar1 bundles")
+		time.Sleep(15 * time.Second)
+	}
+	verbose("successfully uploaded all active %v bundles", ub.bundleConf.Datatype)
 }

@@ -1,8 +1,8 @@
 linters-settings:
   cyclop:
-    max-complexity: 13
+    max-complexity: 15
   gocyclo:
-    min-complexity: 13
+    min-complexity: 15
   gofumpt:
     lang-version: 1.18
   lll:
