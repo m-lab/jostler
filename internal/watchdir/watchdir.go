@@ -94,4 +94,12 @@ func New(watchDir string, watchExtensions []string, watchEvents []notify.Event, 
 // for the configured events and sends the pathnames of the events it received
 // through the configured channel.
 func (wd *WatchDir) WatchAndNotify(ctx context.Context) {
+	for {
+		select {
+		case <-ctx.Done():
+			// We are all done.
+			verbose("context canceled; returning")
+			return
+		}
+	}
 }
