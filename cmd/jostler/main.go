@@ -7,12 +7,10 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
 	"log"
-	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -34,7 +32,7 @@ var (
 	mlabNodeName = flag.String("mlab-node-name", "", "node name specified directly or via MLAB_NODE_NAME env variable")
 
 	// Flags related to bundles.
-	goldenRows    = flagx.StringArray{}
+	schemaFiles   = flagx.StringArray{}
 	bundleSizeMax = flag.Uint("bundle-size-max", 20*1024*1024, "maximum bundle size in bytes before it is uploaded")
 	bundleAgeMax  = flag.Duration("bundle-age-max", 1*time.Hour, "maximum bundle age before it is uploaded")
 	bundleNoRm    = flag.Bool("no-rm", false, "do not remove files of a bundle after successful upload") // XXX debugging support - delete when done
@@ -48,24 +46,18 @@ var (
 	missedInterval = flag.Duration("missed-interval", 30*time.Minute, "time interval between scans of filesystem for missed files")
 
 	// Flags related to program's execution.
-	schema  = flag.Bool("schema", false, "create schema files for each datatype")
-	verbose = flag.Bool("verbose", false, "enable verbose mode")
+	genSchema = flag.Bool("schema", false, "generate schema files for each datatype")
+	verbose   = flag.Bool("verbose", false, "enable verbose mode")
 
-	errExtraArgs     = errors.New("extra arguments on the command line")
-	errNoNode        = errors.New("must specify mlab-node-name")
-	errNoBucket      = errors.New("must specify GCS bucket")
-	errNoExperiment  = errors.New("must specify experiment")
-	errNoDatatype    = errors.New("must specify at least one datatype")
-	errMismatch      = errors.New("mismatch between golden row(s) and datatype(s)")
-	errGRowArgFormat = errors.New("is not in <datatype>:<pathname> format")
-	errInvalidGRow   = errors.New("failed to validate golden row")
-	errStatFile      = errors.New("failed to stat file")
-	errReadFile      = errors.New("failed to read file")
-	errMarshal       = errors.New("failed to marshal")
+	errExtraArgs    = errors.New("extra arguments on the command line")
+	errNoNode       = errors.New("must specify mlab-node-name")
+	errNoBucket     = errors.New("must specify GCS bucket")
+	errNoExperiment = errors.New("must specify experiment")
+	errNoDatatype   = errors.New("must specify at least one datatype")
 )
 
 func init() {
-	flag.Var(&goldenRows, "golden-row", "golden row for each datatype in the format <datatype>:<pathname>")
+	flag.Var(&schemaFiles, "schema-file", "schema for each datatype in the format <datatype>:<pathname>")
 	flag.Var(&extensions, "extensions", "filename extensions to watch within <data-dir>/<experiment>")
 	flag.Var(&datatypes, "datatype", "datatype(s) to watch within <data-dir>/<experiment>")
 }
@@ -85,8 +77,14 @@ func main() {
 		uploadbundle.Verbose(vLogf)
 	}
 
-	if *schema {
-		if err := createSchemas(); err != nil {
+	// Make sure that schema file we generate matches exactly the
+	// standard columns we wrap the measurement data in.
+	if err := validateStdColsSchema(); err != nil {
+		log.Panic(err)
+	}
+
+	if *genSchema {
+		if err := createTableSchemas(); err != nil {
 			log.Panic(err)
 		}
 	} else {
@@ -112,7 +110,7 @@ func parseAndValidateCLI() error {
 	if err := flagx.ArgsFromEnv(flag.CommandLine); err != nil {
 		return fmt.Errorf("failed to get args from the environment: %w", err)
 	}
-	if !*schema {
+	if !*genSchema {
 		if *mlabNodeName == "" {
 			return errNoNode
 		}
@@ -126,86 +124,7 @@ func parseAndValidateCLI() error {
 	if len(datatypes) == 0 {
 		return errNoDatatype
 	}
-	if len(goldenRows) > len(datatypes) {
-		return errMismatch
-	}
-	// Validate that for each golden row file, its corresponding
-	// datatype has been specified.
-	for _, gRow := range goldenRows {
-		idx := strings.Index(gRow, ":")
-		if idx == -1 {
-			return fmt.Errorf("%v: %w", gRow, errGRowArgFormat)
-		}
-		found := false
-		for _, datatype := range datatypes {
-			if datatype == gRow[:idx] {
-				found = true
-				break
-			}
-		}
-		if !found {
-			return fmt.Errorf("%v: %w", gRow, errMismatch)
-		}
-	}
-	return nil
-}
-
-// createSchemas creates schema files for each datatype.  These schema files
-// will be used to create BigQuery tables.
-func createSchemas() error {
-	for _, datatype := range datatypes {
-		gRow, err := goldenRowForDatatype(datatype)
-		if err != nil {
-			return err
-		}
-		schema := uploadbundle.StandardColumns{
-			Date: "yyyy/mm/dd",
-			Archiver: uploadbundle.Archiver{
-				Version:    "jostler@v0.0.0",
-				GitCommit:  "3ac4528",
-				ArchiveURL: "gs://bucket-name/object-name",
-				Filename:   "/full/pathname",
-			},
-			Raw: gRow,
-		}
-		schemaBytes, err := json.Marshal(schema)
-		if err != nil {
-			return fmt.Errorf("%v: %w", errMarshal, err)
-		}
-		fmt.Printf("%s\n", string(schemaBytes)) //nolint
-	}
-	return nil
-}
-
-// goldenRowForDatatype validates the golden row file for the given datatype.
-// By default golden rows are in /var/spool/datatypes/<datatype>/golden-row.json
-// but can also be specified via the -golden-row flag.  For example,
-// for datatype foo1, it can be: foo1:<path>/<to>/<foo1-golden-row.json>.
-func goldenRowForDatatype(datatype string) (string, error) {
-	gRowFile := ""
-	for _, gRow := range goldenRows {
-		if strings.HasPrefix(gRow, datatype+":") {
-			gRowFile = gRow[len(datatype)+1:]
-			break
-		}
-	}
-	if gRowFile == "" {
-		gRowFile = filepath.Join("/var/spool/datatypes", datatype, "golden-row.json")
-	}
-	vLogf("checking golden row file %v for datatype %v", gRowFile, datatype)
-	if _, err := os.Stat(gRowFile); err != nil {
-		return "", fmt.Errorf("%v: %w", errStatFile, err)
-	}
-
-	var gRowBytes []byte
-	gRowBytes, err := os.ReadFile(gRowFile)
-	if err != nil {
-		return "", fmt.Errorf("%v: %w", errReadFile, err)
-	}
-	if err := json.Unmarshal(gRowBytes, &struct{}{}); err != nil {
-		return "", fmt.Errorf("%v: %v: %w", datatype, errInvalidGRow, err)
-	}
-	return strings.TrimSuffix(string(gRowBytes), "\n"), nil
+	return validateSchemaFlags()
 }
 
 // watchAndUpload bundles individual JSON files into JSONL bundles and
@@ -222,11 +141,7 @@ func watchAndUpload() {
 		if err != nil {
 			log.Panicf("failed to start directory watcher: %v", err)
 		}
-		goldenRow, err := goldenRowForDatatype(datatype)
-		if err != nil {
-			log.Panic(err)
-		}
-		if err := startUploader(mainCtx, mainCancel, &wg, datatype, goldenRow, wdClient); err != nil {
+		if err := startUploader(mainCtx, mainCancel, &wg, datatype, wdClient); err != nil {
 			log.Panicf("failed to start bundle uploader: %v", err)
 		}
 	}
@@ -259,7 +174,7 @@ func startWatcher(mainCtx context.Context, mainCancel context.CancelFunc, wg *sy
 
 // startUploader start a bundle uploader goroutine that bundles
 // individual JSON files into JSONL bundle and uploads it to GCS.
-func startUploader(mainCtx context.Context, mainCancel context.CancelFunc, wg *sync.WaitGroup, datatype, goldenRow string, wdClient *watchdir.WatchDir) error {
+func startUploader(mainCtx context.Context, mainCancel context.CancelFunc, wg *sync.WaitGroup, datatype string, wdClient *watchdir.WatchDir) error {
 	// Parse the M-Lab hostname (which should be in one of the
 	// following formats) into its constituent parts.
 	// v1: <machine>.<site>.measuremen-lab.org
@@ -275,12 +190,11 @@ func startUploader(mainCtx context.Context, mainCancel context.CancelFunc, wg *s
 		BaseID:  fmt.Sprintf("%s-%s-%s-%s", datatype, nameParts.Machine, nameParts.Site, *experiment),
 	}
 	bundleConf := uploadbundle.BundleConfig{
-		Datatype:  datatype,
-		DataDir:   filepath.Join(*dataHomeDir, *experiment, datatype),
-		GoldenRow: goldenRow,
-		SizeMax:   *bundleSizeMax,
-		AgeMax:    *bundleAgeMax,
-		NoRm:      *bundleNoRm,
+		Datatype: datatype,
+		DataDir:  filepath.Join(*dataHomeDir, *experiment, datatype),
+		SizeMax:  *bundleSizeMax,
+		AgeMax:   *bundleAgeMax,
+		NoRm:     *bundleNoRm,
 	}
 	ubClient, err := uploadbundle.New(wdClient, gcsConf, bundleConf)
 	if err != nil {

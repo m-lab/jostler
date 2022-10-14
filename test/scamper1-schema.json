@@ -1,0 +1,343 @@
+[
+	  { "mode": "NULLABLE", "name": "date", "type": "DATE" },
+	  { 
+	    "fields": [
+	      { "mode": "NULLABLE", "name": "Version",    "type": "STRING" },
+	      { "mode": "NULLABLE", "name": "GitCommit",  "type": "STRING" },
+	      { "mode": "NULLABLE", "name": "ArchiveURL", "type": "STRING" },
+	      { "mode": "NULLABLE", "name": "Filename",   "type": "STRING" }
+	    ],
+	    "mode": "NULLABLE", "name": "archiver", "type": "RECORD"
+	  },
+	  {
+  "fields": [
+    {
+      "fields": [
+        {
+          "mode": "NULLABLE",
+          "name": "Type",
+          "type": "STRING"
+        },
+        {
+          "mode": "NULLABLE",
+          "name": "list_name",
+          "type": "STRING"
+        },
+        {
+          "mode": "NULLABLE",
+          "name": "ID",
+          "type": "FLOAT"
+        },
+        {
+          "mode": "NULLABLE",
+          "name": "Hostname",
+          "type": "STRING"
+        },
+        {
+          "mode": "NULLABLE",
+          "name": "start_time",
+          "type": "FLOAT"
+        }
+      ],
+      "mode": "NULLABLE",
+      "name": "CycleStart",
+      "type": "RECORD"
+    },
+    {
+      "fields": [
+        {
+          "mode": "NULLABLE",
+          "name": "type",
+          "type": "STRING"
+        },
+        {
+          "mode": "NULLABLE",
+          "name": "version",
+          "type": "STRING"
+        },
+        {
+          "mode": "NULLABLE",
+          "name": "userid",
+          "type": "FLOAT"
+        },
+        {
+          "mode": "NULLABLE",
+          "name": "method",
+          "type": "STRING"
+        },
+        {
+          "mode": "NULLABLE",
+          "name": "src",
+          "type": "STRING"
+        },
+        {
+          "mode": "NULLABLE",
+          "name": "dst",
+          "type": "STRING"
+        },
+        {
+          "fields": [
+            {
+              "mode": "NULLABLE",
+              "name": "Sec",
+              "type": "INTEGER"
+            },
+            {
+              "mode": "NULLABLE",
+              "name": "Usec",
+              "type": "INTEGER"
+            }
+          ],
+          "mode": "NULLABLE",
+          "name": "start",
+          "type": "RECORD"
+        },
+        {
+          "mode": "NULLABLE",
+          "name": "probe_size",
+          "type": "FLOAT"
+        },
+        {
+          "mode": "NULLABLE",
+          "name": "firsthop",
+          "type": "FLOAT"
+        },
+        {
+          "mode": "NULLABLE",
+          "name": "attempts",
+          "type": "FLOAT"
+        },
+        {
+          "mode": "NULLABLE",
+          "name": "confidence",
+          "type": "FLOAT"
+        },
+        {
+          "mode": "NULLABLE",
+          "name": "tos",
+          "type": "FLOAT"
+        },
+        {
+          "mode": "NULLABLE",
+          "name": "gaplimit",
+          "type": "FLOAT"
+        },
+        {
+          "mode": "NULLABLE",
+          "name": "wait_timeout",
+          "type": "FLOAT"
+        },
+        {
+          "mode": "NULLABLE",
+          "name": "wait_probe",
+          "type": "FLOAT"
+        },
+        {
+          "mode": "NULLABLE",
+          "name": "probec",
+          "type": "FLOAT"
+        },
+        {
+          "mode": "NULLABLE",
+          "name": "probec_max",
+          "type": "FLOAT"
+        },
+        {
+          "mode": "NULLABLE",
+          "name": "nodec",
+          "type": "FLOAT"
+        },
+        {
+          "mode": "NULLABLE",
+          "name": "linkc",
+          "type": "FLOAT"
+        },
+        {
+          "fields": [
+            {
+              "mode": "NULLABLE",
+              "name": "hop_id",
+              "type": "STRING"
+            },
+            {
+              "mode": "NULLABLE",
+              "name": "addr",
+              "type": "STRING"
+            },
+            {
+              "mode": "NULLABLE",
+              "name": "name",
+              "type": "STRING"
+            },
+            {
+              "mode": "NULLABLE",
+              "name": "q_ttl",
+              "type": "INTEGER"
+            },
+            {
+              "mode": "NULLABLE",
+              "name": "linkc",
+              "type": "INTEGER"
+            },
+            {
+              "fields": [
+                {
+                  "fields": [
+                    {
+                      "mode": "NULLABLE",
+                      "name": "Addr",
+                      "type": "STRING"
+                    },
+                    {
+                      "fields": [
+                        {
+                          "fields": [
+                            {
+                              "mode": "NULLABLE",
+                              "name": "Sec",
+                              "type": "INTEGER"
+                            },
+                            {
+                              "mode": "NULLABLE",
+                              "name": "Usec",
+                              "type": "INTEGER"
+                            }
+                          ],
+                          "mode": "NULLABLE",
+                          "name": "Tx",
+                          "type": "RECORD"
+                        },
+                        {
+                          "mode": "NULLABLE",
+                          "name": "Replyc",
+                          "type": "INTEGER"
+                        },
+                        {
+                          "mode": "NULLABLE",
+                          "name": "TTL",
+                          "type": "INTEGER"
+                        },
+                        {
+                          "mode": "NULLABLE",
+                          "name": "Attempt",
+                          "type": "INTEGER"
+                        },
+                        {
+                          "mode": "NULLABLE",
+                          "name": "Flowid",
+                          "type": "INTEGER"
+                        },
+                        {
+                          "fields": [
+                            {
+                              "fields": [
+                                {
+                                  "mode": "NULLABLE",
+                                  "name": "Sec",
+                                  "type": "INTEGER"
+                                },
+                                {
+                                  "mode": "NULLABLE",
+                                  "name": "Usec",
+                                  "type": "INTEGER"
+                                }
+                              ],
+                              "mode": "NULLABLE",
+                              "name": "Rx",
+                              "type": "RECORD"
+                            },
+                            {
+                              "mode": "NULLABLE",
+                              "name": "TTL",
+                              "type": "INTEGER"
+                            },
+                            {
+                              "mode": "NULLABLE",
+                              "name": "RTT",
+                              "type": "FLOAT"
+                            },
+                            {
+                              "mode": "NULLABLE",
+                              "name": "icmp_type",
+                              "type": "INTEGER"
+                            },
+                            {
+                              "mode": "NULLABLE",
+                              "name": "icmp_code",
+                              "type": "INTEGER"
+                            },
+                            {
+                              "mode": "NULLABLE",
+                              "name": "icmp_q_tos",
+                              "type": "INTEGER"
+                            },
+                            {
+                              "mode": "NULLABLE",
+                              "name": "icmp_q_ttl",
+                              "type": "INTEGER"
+                            }
+                          ],
+                          "mode": "REPEATED",
+                          "name": "Replies",
+                          "type": "RECORD"
+                        }
+                      ],
+                      "mode": "REPEATED",
+                      "name": "Probes",
+                      "type": "RECORD"
+                    }
+                  ],
+                  "mode": "REPEATED",
+                  "name": "Links",
+                  "type": "RECORD"
+                }
+              ],
+              "mode": "REPEATED",
+              "name": "links",
+              "type": "RECORD"
+            }
+          ],
+          "mode": "REPEATED",
+          "name": "nodes",
+          "type": "RECORD"
+        }
+      ],
+      "mode": "NULLABLE",
+      "name": "Tracelb",
+      "type": "RECORD"
+    },
+    {
+      "fields": [
+        {
+          "mode": "NULLABLE",
+          "name": "Type",
+          "type": "STRING"
+        },
+        {
+          "mode": "NULLABLE",
+          "name": "list_name",
+          "type": "STRING"
+        },
+        {
+          "mode": "NULLABLE",
+          "name": "ID",
+          "type": "FLOAT"
+        },
+        {
+          "mode": "NULLABLE",
+          "name": "Hostname",
+          "type": "STRING"
+        },
+        {
+          "mode": "NULLABLE",
+          "name": "stop_time",
+          "type": "FLOAT"
+        }
+      ],
+      "mode": "NULLABLE",
+      "name": "CycleStop",
+      "type": "RECORD"
+    }
+  ]
+, "mode": "NULLABLE", "name": "raw", "type": "RECORD" }
+	]

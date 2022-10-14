@@ -66,12 +66,11 @@ type GCSConfig struct {
 
 // BundleConfig defines bundle configuration options.
 type BundleConfig struct {
-	Datatype  string        // datatype (e.g., ndt)
-	DataDir   string        // path to datatype subdirectory on local disk (e.g., /cache/data/<experiment>/<datatype>)
-	GoldenRow string        // datatype's golden row
-	SizeMax   uint          // bundle will be uploaded when it reaches this size
-	AgeMax    time.Duration // bundle will be uploaded when it reaches this age
-	NoRm      bool          // XXX debugging support - delete when done
+	Datatype string        // datatype (e.g., ndt)
+	DataDir  string        // path to datatype subdirectory on local disk (e.g., /cache/data/<experiment>/<datatype>)
+	SizeMax  uint          // bundle will be uploaded when it reaches this size
+	AgeMax   time.Duration // bundle will be uploaded when it reaches this age
+	NoRm     bool          // XXX debugging support - delete when done
 }
 
 var verbose = func(fmt string, args ...interface{}) {}
@@ -97,14 +96,8 @@ func New(wdClient *watchdir.WatchDir, gcsConf GCSConfig, bundleConf BundleConfig
 
 // BundleAndUpload is a stub function.
 func (ub *UploadBundle) BundleAndUpload(ctx context.Context) {
-	for {
-		select {
-		case <-ctx.Done():
-			// We are all done.
-			verbose("bundle and upload context canceled")
-			return
-		}
-	}
+	<-ctx.Done()
+	verbose("bundle and upload context canceled")
 }
 
 // UploadActiveBundles uploads all active bundles regardless of their
