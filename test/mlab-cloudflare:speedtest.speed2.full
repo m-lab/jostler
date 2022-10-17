@@ -1,0 +1,348 @@
+{
+  "creationTime": "1664558370966",
+  "etag": "JRhpVwr9g3Kll0QALkDg9A==",
+  "id": "mlab-cloudflare:speedtest.speed2",
+  "kind": "bigquery#table",
+  "lastModifiedTime": "1664558390246",
+  "location": "US",
+  "numActiveLogicalBytes": "11854724",
+  "numActivePhysicalBytes": "2546343",
+  "numBytes": "11854724",
+  "numLongTermBytes": "0",
+  "numLongTermLogicalBytes": "0",
+  "numLongTermPhysicalBytes": "0",
+  "numPartitions": "1",
+  "numRows": "10255",
+  "numTimeTravelPhysicalBytes": "0",
+  "numTotalLogicalBytes": "11854724",
+  "numTotalPhysicalBytes": "2546343",
+  "requirePartitionFilter": true,
+  "schema": {
+    "fields": [
+      {
+        "mode": "NULLABLE",
+        "name": "responsiveness",
+        "type": "FLOAT"
+      },
+      {
+        "fields": [
+          {
+            "mode": "REPEATED",
+            "name": "pageLoadTimeMs",
+            "type": "FLOAT"
+          }
+        ],
+        "mode": "NULLABLE",
+        "name": "navigationTimings",
+        "type": "RECORD"
+      },
+      {
+        "fields": [
+          {
+            "mode": "REPEATED",
+            "name": "responseTimeMs",
+            "type": "FLOAT"
+          },
+          {
+            "mode": "REPEATED",
+            "name": "ttfbMs",
+            "type": "FLOAT"
+          },
+          {
+            "mode": "REPEATED",
+            "name": "waitTimeMs",
+            "type": "FLOAT"
+          },
+          {
+            "mode": "REPEATED",
+            "name": "connectTimeMs",
+            "type": "FLOAT"
+          },
+          {
+            "mode": "REPEATED",
+            "name": "domainLookupTimeMs",
+            "type": "FLOAT"
+          }
+        ],
+        "mode": "NULLABLE",
+        "name": "resourceTimings",
+        "type": "RECORD"
+      },
+      {
+        "fields": [
+          {
+            "mode": "NULLABLE",
+            "name": "points",
+            "type": "FLOAT"
+          },
+          {
+            "mode": "NULLABLE",
+            "name": "classification",
+            "type": "STRING"
+          }
+        ],
+        "mode": "NULLABLE",
+        "name": "privacyScore",
+        "type": "RECORD"
+      },
+      {
+        "description": "%E4Y-%m-%d",
+        "mode": "NULLABLE",
+        "name": "date",
+        "type": "DATE"
+      },
+      {
+        "fields": [
+          {
+            "mode": "NULLABLE",
+            "name": "points",
+            "type": "FLOAT"
+          },
+          {
+            "mode": "NULLABLE",
+            "name": "classification",
+            "type": "STRING"
+          }
+        ],
+        "mode": "NULLABLE",
+        "name": "gamingScore",
+        "type": "RECORD"
+      },
+      {
+        "fields": [
+          {
+            "mode": "NULLABLE",
+            "name": "points",
+            "type": "FLOAT"
+          },
+          {
+            "mode": "NULLABLE",
+            "name": "classification",
+            "type": "STRING"
+          }
+        ],
+        "mode": "NULLABLE",
+        "name": "voipScore",
+        "type": "RECORD"
+      },
+      {
+        "description": "bq-datetime",
+        "mode": "NULLABLE",
+        "name": "measurementTime",
+        "type": "TIMESTAMP"
+      },
+      {
+        "fields": [
+          {
+            "mode": "REPEATED",
+            "name": "bps",
+            "type": "FLOAT"
+          },
+          {
+            "mode": "REPEATED",
+            "name": "bytes",
+            "type": "INTEGER"
+          }
+        ],
+        "mode": "NULLABLE",
+        "name": "upload",
+        "type": "RECORD"
+      },
+      {
+        "mode": "NULLABLE",
+        "name": "testOwner",
+        "type": "STRING"
+      },
+      {
+        "fields": [
+          {
+            "mode": "NULLABLE",
+            "name": "reachable",
+            "type": "BOOLEAN"
+          },
+          {
+            "mode": "NULLABLE",
+            "name": "host",
+            "type": "STRING"
+          }
+        ],
+        "mode": "NULLABLE",
+        "name": "reachabilityIPv6",
+        "type": "RECORD"
+      },
+      {
+        "mode": "NULLABLE",
+        "name": "testVersion",
+        "type": "INTEGER"
+      },
+      {
+        "fields": [
+          {
+            "mode": "NULLABLE",
+            "name": "reachable",
+            "type": "BOOLEAN"
+          },
+          {
+            "mode": "NULLABLE",
+            "name": "host",
+            "type": "STRING"
+          }
+        ],
+        "mode": "NULLABLE",
+        "name": "nxdomainPollution",
+        "type": "RECORD"
+      },
+      {
+        "mode": "NULLABLE",
+        "name": "clientRegion",
+        "type": "STRING"
+      },
+      {
+        "mode": "NULLABLE",
+        "name": "serverPoP",
+        "type": "STRING"
+      },
+      {
+        "mode": "NULLABLE",
+        "name": "clientNetmask",
+        "type": "INTEGER"
+      },
+      {
+        "fields": [
+          {
+            "mode": "NULLABLE",
+            "name": "reachable",
+            "type": "BOOLEAN"
+          },
+          {
+            "mode": "NULLABLE",
+            "name": "host",
+            "type": "STRING"
+          }
+        ],
+        "mode": "NULLABLE",
+        "name": "rpkiOriginValidation",
+        "type": "RECORD"
+      },
+      {
+        "fields": [
+          {
+            "mode": "NULLABLE",
+            "name": "reachable",
+            "type": "BOOLEAN"
+          },
+          {
+            "mode": "NULLABLE",
+            "name": "host",
+            "type": "STRING"
+          }
+        ],
+        "mode": "NULLABLE",
+        "name": "reachabilityIPv4",
+        "type": "RECORD"
+      },
+      {
+        "mode": "NULLABLE",
+        "name": "measurementUUID",
+        "type": "STRING"
+      },
+      {
+        "fields": [
+          {
+            "mode": "NULLABLE",
+            "name": "lossRatio",
+            "type": "FLOAT"
+          },
+          {
+            "mode": "NULLABLE",
+            "name": "numMessages",
+            "type": "INTEGER"
+          }
+        ],
+        "mode": "NULLABLE",
+        "name": "packetLoss",
+        "type": "RECORD"
+      },
+      {
+        "mode": "NULLABLE",
+        "name": "clientCountry",
+        "type": "STRING"
+      },
+      {
+        "fields": [
+          {
+            "mode": "NULLABLE",
+            "name": "points",
+            "type": "FLOAT"
+          },
+          {
+            "mode": "NULLABLE",
+            "name": "classification",
+            "type": "STRING"
+          }
+        ],
+        "mode": "NULLABLE",
+        "name": "streamingScore",
+        "type": "RECORD"
+      },
+      {
+        "mode": "NULLABLE",
+        "name": "clientCity",
+        "type": "STRING"
+      },
+      {
+        "mode": "REPEATED",
+        "name": "latencyMs",
+        "type": "FLOAT"
+      },
+      {
+        "fields": [
+          {
+            "mode": "REPEATED",
+            "name": "bps",
+            "type": "FLOAT"
+          },
+          {
+            "mode": "REPEATED",
+            "name": "bytes",
+            "type": "INTEGER"
+          }
+        ],
+        "mode": "NULLABLE",
+        "name": "download",
+        "type": "RECORD"
+      },
+      {
+        "mode": "NULLABLE",
+        "name": "clientASN",
+        "type": "INTEGER"
+      },
+      {
+        "mode": "NULLABLE",
+        "name": "isWarpClient",
+        "type": "BOOLEAN"
+      },
+      {
+        "mode": "NULLABLE",
+        "name": "clientIPVersion",
+        "type": "INTEGER"
+      },
+      {
+        "mode": "NULLABLE",
+        "name": "clientAddress",
+        "type": "STRING"
+      }
+    ]
+  },
+  "selfLink": "https://bigquery.googleapis.com/bigquery/v2/projects/mlab-cloudflare/datasets/speedtest/tables/speed2",
+  "tableReference": {
+    "datasetId": "speedtest",
+    "projectId": "mlab-cloudflare",
+    "tableId": "speed2"
+  },
+  "timePartitioning": {
+    "requirePartitionFilter": true,
+    "type": "DAY"
+  },
+  "type": "TABLE"
+}

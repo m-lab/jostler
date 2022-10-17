@@ -4,6 +4,7 @@ package watchdir
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"time"
@@ -57,6 +58,8 @@ var (
 		notify.InMoveSelf:     "Self was moved",
 	}
 
+	errUnrecognizedEvent = errors.New("unrecognized event")
+
 	verbose = func(fmt string, args ...interface{}) {}
 )
 
@@ -71,7 +74,7 @@ func New(watchDir string, watchExtensions []string, watchEvents []notify.Event, 
 	if len(watchEvents) > 0 {
 		for _, e := range watchEvents {
 			if _, ok := eventNames[e]; !ok {
-				return nil, fmt.Errorf("%v: unrecognized event", e)
+				return nil, fmt.Errorf("%v: %w", e, errUnrecognizedEvent)
 			}
 		}
 	} else {
@@ -94,12 +97,6 @@ func New(watchDir string, watchExtensions []string, watchEvents []notify.Event, 
 // for the configured events and sends the pathnames of the events it received
 // through the configured channel.
 func (wd *WatchDir) WatchAndNotify(ctx context.Context) {
-	for {
-		select {
-		case <-ctx.Done():
-			// We are all done.
-			verbose("context canceled; returning")
-			return
-		}
-	}
+	<-ctx.Done()
+	verbose("context canceled; returning")
 }
