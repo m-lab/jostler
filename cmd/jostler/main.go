@@ -3,7 +3,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -20,23 +19,16 @@ import (
 	"github.com/m-lab/jostler/internal/watchdir"
 )
 
-var (
-	// Errors.
-	errExtraArgs    = errors.New("extra arguments on the command line")
-	errNoNode       = errors.New("must specify mlab-node-name")
-	errNoBucket     = errors.New("must specify GCS bucket")
-	errNoExperiment = errors.New("must specify experiment")
-	errNoDatatype   = errors.New("must specify at least one datatype")
-
-	fatal = log.Fatal
-)
+// Test code changes Fatal to Panic so a fatal error won't exit
+// the process and can be recovered.
+var fatal = log.Fatal
 
 // main supports two modes of operation:
 //   - A short-lived interactive mode, enabled by the -schema flag,
 //     to create and upload schema files to GCS.
 //   - A long-lived non-interactive mode to bundle and upload data to GCS.
 func main() {
-	// Change log package's default output from stderr to stdout.
+	// Change log's default output from stderr to stdout.
 	// Otherwise, all messages will be treated as error!
 	log.SetOutput(os.Stdout)
 	log.SetFlags(log.Ltime)
@@ -49,17 +41,19 @@ func main() {
 		uploadbundle.Verbose(vLogf)
 	}
 
-	// Make sure that schema file we generate matches exactly the
-	// standard columns we wrap the measurement data in.
-	if err := validateStdColsSchema(); err != nil {
+	// Make sure our template for table schemas matches exactly the
+	// schema of the standard columns.
+	if err := validateStdColsTemplate(); err != nil {
 		fatal(err)
 	}
 
 	if *genSchema {
+		// Short-lived interactive mode.
 		if err := createTableSchemas(); err != nil {
 			fatal(err)
 		}
 	} else {
+		// Long-lived non-interactive mode.
 		if err := watchAndUpload(); err != nil {
 			fatal(err)
 		}
@@ -85,10 +79,14 @@ func watchAndUpload() error {
 		}
 	}
 
+	// When testing, we set testInterval to a non-zero value (e.g.,
+	// 3 seconds) after which we cancel the main context to wrap up
+	// and return.
 	if testInterval.Abs() != 0 {
 		<-time.After(*testInterval)
 		mainCancel()
 	}
+
 	// If there's an unrecoverable error that causes channels
 	// to close or if the main context is explicitly canceled, the
 	// goroutines created in startWatcher() and startBundleUploader()
@@ -119,10 +117,6 @@ func startWatcher(mainCtx context.Context, mainCancel context.CancelFunc, wg *sy
 // startUploader start a bundle uploader goroutine that bundles
 // individual JSON files into JSONL bundle and uploads it to GCS.
 func startUploader(mainCtx context.Context, mainCancel context.CancelFunc, wg *sync.WaitGroup, datatype string, wdClient *watchdir.WatchDir) (*uploadbundle.UploadBundle, error) {
-	// Parse the M-Lab hostname (which should be in one of the
-	// following formats) into its constituent parts.
-	// v1: <machine>.<site>.measuremen-lab.org
-	// v2: <machine>.<site>.<project>.measurement-lab.org
 	nameParts, err := host.Parse(*mlabNodeName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse hostname: %w", err)

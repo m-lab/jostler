@@ -2,6 +2,7 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"strings"
@@ -35,6 +36,16 @@ var (
 	genSchema    *bool
 	verbose      *bool
 	testInterval *time.Duration
+
+	// Errors related to command line parsing and validation.
+	errExtraArgs      = errors.New("extra arguments on the command line")
+	errNoNode         = errors.New("must specify mlab-node-name")
+	errNoBucket       = errors.New("must specify GCS bucket")
+	errNoExperiment   = errors.New("must specify experiment")
+	errNoDatatype     = errors.New("must specify at least one datatype")
+	errSchemaNums     = errors.New("unequal schemas and datatypes")
+	errSchemaNoMatch  = errors.New("does not match any specified datatypes")
+	errSchemaFilename = errors.New("is not in <datatype>:<pathname> format")
 )
 
 func initFlags() {
@@ -143,6 +154,9 @@ func validateSchemaFlags() error {
 	return nil
 }
 
+// validateSchemaFiles() validates the schema files of all datatypes
+// whether their paths were explicitly specified on the command line
+// or not (i.e., assumed to be in their default locations).
 func validateSchemaFiles() error {
 	for _, datatype := range datatypes {
 		if _, err := schemaForDatatype(datatype); err != nil {

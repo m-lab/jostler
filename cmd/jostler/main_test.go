@@ -119,13 +119,18 @@ func TestCLI(t *testing.T) {
 	}
 }
 
+// callMain calls main() with the given command line in osArgs, expecting
+// an error that will include the given string in wantErrStr (which could
+// be the empty string "").
+//
+// Since flags are global variables, we need to create a new flag set before
+// calling main().  Also, we need to change the behavior of fatal to panic
+// instead of exiting in order to recover from fatal errors.
 func callMain(t *testing.T, osArgs []string, wantErrStr string) {
 	t.Helper()
 	saveOSArgs := os.Args
 	saveFatal := fatal
 	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.PanicOnError)
-	// flag.Usage = func() {}
-	// flag.CommandLine.Usage = func() {}
 	defer func() {
 		gotErr := recoverError(recover())
 		if gotErr == nil {
@@ -142,12 +147,13 @@ func callMain(t *testing.T, osArgs []string, wantErrStr string) {
 		os.Args = saveOSArgs
 		fatal = saveFatal
 	}()
-	os.Args = []string{"./jostler-test", "-test-interval", "2s", "-verbose"}
+	os.Args = []string{"jostler-test", "-test-interval", "2s", "-verbose"}
 	os.Args = append(os.Args, osArgs...)
 	fatal = log.Panic
 	main()
 }
 
+// recoverError returns the error that caused the panic.
 func recoverError(r any) error {
 	if r == nil {
 		return nil
