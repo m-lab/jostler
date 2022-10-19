@@ -37,7 +37,8 @@ var (
 	  RAW_SCHEMA
 	]`
 
-	errMismatch       = errors.New("mismatch between schema file(s) and datatype(s)")
+	errSchemaNums     = errors.New("unequal schemas and datatypes")
+	errSchemaNoMatch  = errors.New("does not match any specified datatypes")
 	errSchemaFilename = errors.New("is not in <datatype>:<pathname> format")
 	errNotInStdCols   = errors.New("is not in standard columns schema template")
 	errFieldType      = errors.New("has unexpected field type")
@@ -46,31 +47,6 @@ var (
 	errReadFile       = errors.New("failed to read file")
 	errUnmarshal      = errors.New("invalid schema: failed to unmarshal")
 )
-
-// validateSchemaFlags validate that for each schema file, its corresponding
-// datatype has been specified.
-func validateSchemaFlags() error {
-	if len(schemaFiles) > len(datatypes) {
-		return errMismatch
-	}
-	for _, schemaFile := range schemaFiles {
-		idx := strings.Index(schemaFile, ":")
-		if idx == -1 {
-			return fmt.Errorf("%v: %w", schemaFile, errSchemaFilename)
-		}
-		found := false
-		for _, datatype := range datatypes {
-			if datatype == schemaFile[:idx] {
-				found = true
-				break
-			}
-		}
-		if !found {
-			return fmt.Errorf("%v: %w", schemaFile, errMismatch)
-		}
-	}
-	return nil
-}
 
 // validateStdColsSchema verifies the standard columns schema template
 // matches the standard columns we wrap the measurement data in.
