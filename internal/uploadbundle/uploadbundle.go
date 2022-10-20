@@ -106,11 +106,11 @@ func (ub *UploadBundle) UploadActiveBundles(ctx context.Context, wg *sync.WaitGr
 	defer wg.Done()
 	verbose("start uploading all active %v bundles", ub.bundleConf.Datatype)
 	if ub.bundleConf.Datatype == "foo1" {
-		verbose("waiting 10 seconds for foo1 bundles")
-		time.Sleep(10 * time.Second)
+		verbose("waiting 2 seconds for foo1 bundles")
+		time.Sleep(2 * time.Second)
 	} else {
-		verbose("waiting 15 seconds for bar1 bundles")
-		time.Sleep(15 * time.Second)
+		verbose("waiting 3 seconds for bar1 bundles")
+		time.Sleep(3 * time.Second)
 	}
 	verbose("successfully uploaded all active %v bundles", ub.bundleConf.Datatype)
 }

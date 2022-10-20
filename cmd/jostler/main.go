@@ -1,23 +1,17 @@
 // Package main implements jostler.
-//
-// We use log.Panicf() instead of log.Fatalf() because log.Fatalf()
-// calls os.Exit() which will not run deferred calls and also makes
-// testing harder (for testing, we can recover from log.Panicf()).
 package main
 
 import (
 	"context"
-	"errors"
-	"flag"
 	"fmt"
 	"log"
+	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/m-lab/go/flagx"
 	"github.com/m-lab/go/host"
 	"github.com/rjeczalik/notify"
 
@@ -25,51 +19,21 @@ import (
 	"github.com/m-lab/jostler/internal/watchdir"
 )
 
-var (
-	// Flags related to GCS.
-	bucket       = flag.String("gcs-bucket", "", "GCS bucket name")
-	gcsHomeDir   = flag.String("gcs-home-dir", "autoload/v0", "home directory in GCS bucket under which bundles will be uploaded")
-	mlabNodeName = flag.String("mlab-node-name", "", "node name specified directly or via MLAB_NODE_NAME env variable")
-
-	// Flags related to bundles.
-	schemaFiles   = flagx.StringArray{}
-	bundleSizeMax = flag.Uint("bundle-size-max", 20*1024*1024, "maximum bundle size in bytes before it is uploaded")
-	bundleAgeMax  = flag.Duration("bundle-age-max", 1*time.Hour, "maximum bundle age before it is uploaded")
-	bundleNoRm    = flag.Bool("no-rm", false, "do not remove files of a bundle after successful upload") // XXX debugging support - delete when done
-
-	// Flags related to where to watch for data (inotify events).
-	dataHomeDir    = flag.String("data-home-dir", "/var/spool", "directory pathname under which experiment data is created")
-	extensions     = flagx.StringArray{".json"}
-	experiment     = flag.String("experiment", "", "name of the experiment (e.g., ndt)")
-	datatypes      = flagx.StringArray{}
-	missedAge      = flag.Duration("missed-age", 3*time.Hour, "minimum duration since a file's last modification time before it is considered missed")
-	missedInterval = flag.Duration("missed-interval", 30*time.Minute, "time interval between scans of filesystem for missed files")
-
-	// Flags related to program's execution.
-	genSchema = flag.Bool("schema", false, "generate schema files for each datatype")
-	verbose   = flag.Bool("verbose", false, "enable verbose mode")
-
-	errExtraArgs    = errors.New("extra arguments on the command line")
-	errNoNode       = errors.New("must specify mlab-node-name")
-	errNoBucket     = errors.New("must specify GCS bucket")
-	errNoExperiment = errors.New("must specify experiment")
-	errNoDatatype   = errors.New("must specify at least one datatype")
-)
-
-func init() {
-	flag.Var(&schemaFiles, "schema-file", "schema for each datatype in the format <datatype>:<pathname>")
-	flag.Var(&extensions, "extensions", "filename extensions to watch within <data-dir>/<experiment>")
-	flag.Var(&datatypes, "datatype", "datatype(s) to watch within <data-dir>/<experiment>")
-}
+// Test code changes Fatal to Panic so a fatal error won't exit
+// the process and can be recovered.
+var fatal = log.Fatal
 
 // main supports two modes of operation:
 //   - A short-lived interactive mode, enabled by the -schema flag,
 //     to create and upload schema files to GCS.
 //   - A long-lived non-interactive mode to bundle and upload data to GCS.
 func main() {
+	// Change log's default output from stderr to stdout.
+	// Otherwise, all messages will be treated as error!
+	log.SetOutput(os.Stdout)
 	log.SetFlags(log.Ltime)
 	if err := parseAndValidateCLI(); err != nil {
-		log.Panic(err)
+		fatal(err)
 	}
 	// In verbose mode, enable verbose logging (mostly for debugging).
 	if *verbose {
@@ -77,73 +41,50 @@ func main() {
 		uploadbundle.Verbose(vLogf)
 	}
 
-	// Make sure that schema file we generate matches exactly the
-	// standard columns we wrap the measurement data in.
-	if err := validateStdColsSchema(); err != nil {
-		log.Panic(err)
+	// Make sure our template for table schemas matches exactly the
+	// schema of the standard columns.
+	if err := validateStdColsTemplate(); err != nil {
+		fatal(err)
 	}
 
 	if *genSchema {
+		// Short-lived interactive mode.
 		if err := createTableSchemas(); err != nil {
-			log.Panic(err)
+			fatal(err)
 		}
 	} else {
-		watchAndUpload()
-	}
-}
-
-// parseAndValidateCLI parses and validates the command line.
-func parseAndValidateCLI() error {
-	// Note that extensions was declared as flags.StringArray{".json"}
-	// so the usage message would show the right default value.
-	// But we have to set it to nil before parsing the flags because
-	// flagx.StringArray always appends to the array and there is no
-	// way to remove an element from it.
-	extensions = nil
-	flag.Parse()
-	if extensions == nil {
-		extensions = []string{".json"}
-	}
-	if flag.NArg() != 0 {
-		return errExtraArgs
-	}
-	if err := flagx.ArgsFromEnv(flag.CommandLine); err != nil {
-		return fmt.Errorf("failed to get args from the environment: %w", err)
-	}
-	if !*genSchema {
-		if *mlabNodeName == "" {
-			return errNoNode
-		}
-		if *bucket == "" {
-			return errNoBucket
-		}
-		if *experiment == "" {
-			return errNoExperiment
+		// Long-lived non-interactive mode.
+		if err := watchAndUpload(); err != nil {
+			fatal(err)
 		}
 	}
-	if len(datatypes) == 0 {
-		return errNoDatatype
-	}
-	return validateSchemaFlags()
 }
 
 // watchAndUpload bundles individual JSON files into JSONL bundles and
 // uploads the bundles to GCS.
-func watchAndUpload() {
-	// For each datatype, start a directory watcher and a bundle
-	// uploader.
+func watchAndUpload() error {
 	watchEvents := []notify.Event{notify.InCloseWrite, notify.InMovedTo}
-	wg := sync.WaitGroup{}
 	mainCtx, mainCancel := context.WithCancel(context.Background())
 	defer mainCancel()
+	wg := sync.WaitGroup{}
+	// For each datatype, start a directory watcher and a bundle
+	// uploader.
 	for _, datatype := range datatypes {
 		wdClient, err := startWatcher(mainCtx, mainCancel, &wg, datatype, watchEvents)
 		if err != nil {
-			log.Panicf("failed to start directory watcher: %v", err)
+			return err
 		}
-		if err := startUploader(mainCtx, mainCancel, &wg, datatype, wdClient); err != nil {
-			log.Panicf("failed to start bundle uploader: %v", err)
+		if _, err = startUploader(mainCtx, mainCancel, &wg, datatype, wdClient); err != nil {
+			return err
 		}
+	}
+
+	// When testing, we set testInterval to a non-zero value (e.g.,
+	// 3 seconds) after which we cancel the main context to wrap up
+	// and return.
+	if testInterval.Abs() != 0 {
+		<-time.After(*testInterval)
+		mainCancel()
 	}
 
 	// If there's an unrecoverable error that causes channels
@@ -151,6 +92,7 @@ func watchAndUpload() {
 	// goroutines created in startWatcher() and startBundleUploader()
 	// will terminate and the following Wait() returns.
 	wg.Wait()
+	return nil
 }
 
 // startWatcher starts a directory watcher goroutine that watches the
@@ -174,14 +116,10 @@ func startWatcher(mainCtx context.Context, mainCancel context.CancelFunc, wg *sy
 
 // startUploader start a bundle uploader goroutine that bundles
 // individual JSON files into JSONL bundle and uploads it to GCS.
-func startUploader(mainCtx context.Context, mainCancel context.CancelFunc, wg *sync.WaitGroup, datatype string, wdClient *watchdir.WatchDir) error {
-	// Parse the M-Lab hostname (which should be in one of the
-	// following formats) into its constituent parts.
-	// v1: <machine>.<site>.measuremen-lab.org
-	// v2: <machine>.<site>.<project>.measurement-lab.org
+func startUploader(mainCtx context.Context, mainCancel context.CancelFunc, wg *sync.WaitGroup, datatype string, wdClient *watchdir.WatchDir) (*uploadbundle.UploadBundle, error) {
 	nameParts, err := host.Parse(*mlabNodeName)
 	if err != nil {
-		log.Panic(err)
+		return nil, fmt.Errorf("failed to parse hostname: %w", err)
 	}
 
 	gcsConf := uploadbundle.GCSConfig{
@@ -198,7 +136,7 @@ func startUploader(mainCtx context.Context, mainCancel context.CancelFunc, wg *s
 	}
 	ubClient, err := uploadbundle.New(wdClient, gcsConf, bundleConf)
 	if err != nil {
-		return fmt.Errorf("failed to instantiate uploader: %w", err)
+		return nil, fmt.Errorf("failed to instantiate uploader: %w", err)
 	}
 
 	wg.Add(1)
@@ -209,7 +147,7 @@ func startUploader(mainCtx context.Context, mainCancel context.CancelFunc, wg *s
 		ubClient.BundleAndUpload(mainCtx)
 		wg.Done()
 	}(ubClient)
-	return nil
+	return ubClient, nil
 }
 
 // vLogf logs the given message if verbose mode is enabled.  Because the

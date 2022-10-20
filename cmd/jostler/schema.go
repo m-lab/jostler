@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"path/filepath"
 	"reflect"
 	"strings"
 
@@ -37,46 +36,22 @@ var (
 	  RAW_SCHEMA
 	]`
 
-	errMismatch       = errors.New("mismatch between schema file(s) and datatype(s)")
-	errSchemaFilename = errors.New("is not in <datatype>:<pathname> format")
-	errNotInStdCols   = errors.New("is not in standard columns schema template")
-	errFieldType      = errors.New("has unexpected field type")
-	errNoBracket      = errors.New("invalid schema: no closing bracket")
-	errWriteFile      = errors.New("failed to write file")
-	errReadFile       = errors.New("failed to read file")
-	errUnmarshal      = errors.New("invalid schema: failed to unmarshal")
+	datatypePathTemplate = "/var/spool/datatypes/DATATYPE/schema.json"
+
+	errNotInStdCols = errors.New("is not in standard columns schema template")
+	errFieldType    = errors.New("has unexpected field type")
+	errNoBracket    = errors.New("invalid schema: no closing bracket")
+	errWriteFile    = errors.New("failed to write file")
+	errReadFile     = errors.New("failed to read file")
+	errUnmarshal    = errors.New("invalid schema: failed to unmarshal")
 )
 
-// validateSchemaFlags validate that for each schema file, its corresponding
-// datatype has been specified.
-func validateSchemaFlags() error {
-	if len(schemaFiles) > len(datatypes) {
-		return errMismatch
-	}
-	for _, schemaFile := range schemaFiles {
-		idx := strings.Index(schemaFile, ":")
-		if idx == -1 {
-			return fmt.Errorf("%v: %w", schemaFile, errSchemaFilename)
-		}
-		found := false
-		for _, datatype := range datatypes {
-			if datatype == schemaFile[:idx] {
-				found = true
-				break
-			}
-		}
-		if !found {
-			return fmt.Errorf("%v: %w", schemaFile, errMismatch)
-		}
-	}
-	return nil
-}
-
-// validateStdColsSchema verifies the standard columns schema template
+// validateStdColsTemplate verifies the standard columns schema template
 // matches the standard columns we wrap the measurement data in.
-func validateStdColsSchema() error {
+func validateStdColsTemplate() error {
 	allFields := ""
-	if err := allFieldNames(uploadbundle.StandardColumns{}, "", &allFields); err != nil { //nolint
+	stdCols := uploadbundle.StandardColumns{} //nolint:exhaustruct
+	if err := allFieldNames(stdCols, "", &allFields); err != nil {
 		return err
 	}
 	for _, s := range strings.Split(allFields, " ") {
@@ -102,7 +77,7 @@ func allFieldNames(st interface{}, prefix string, fields *string) error {
 		if prefix != "" {
 			fieldName = prefix + "." + fieldName
 		}
-		switch val.Field(i).Kind() { //nolint
+		switch val.Field(i).Kind() { //nolint:exhaustive
 		case reflect.Struct:
 			if err := allFieldNames(val.Field(i).Interface(), fieldName, fields); err != nil {
 				return err
@@ -132,6 +107,7 @@ func createTableSchemas() error {
 			return errNoBracket
 		}
 		tableSchema := strings.Replace(stdColsTemplate, "RAW_SCHEMA", datatypeSchema[:i]+s, 1)
+		// XXX Add a flag to optionally specify where to write.
 		if err := os.WriteFile(datatype+"-schema.json", []byte(tableSchema), 0o666); err != nil {
 			return fmt.Errorf("%v: %w", errWriteFile, err)
 		}
@@ -141,11 +117,15 @@ func createTableSchemas() error {
 	return nil
 }
 
-// schemaForDatatype validates the schema file for the given datatype.
+// schemaForDatatype validates the schema file for the given datatype
+// and returns it as a string.
+//
 // By default schema files are in /var/spool/datatypes/<datatype>/schema.json
-// but can also be specified via the -schema-file flag.  For example,
+// but they can be specified via the -schema-file flag.  For example,
 // for datatype foo1, it can be: foo1:<path>/<to>/<foo1-schema.json>.
 func schemaForDatatype(datatype string) (string, error) {
+	// See if a schema file for this datatype was specified on the
+	// command line.
 	schemaFile := ""
 	for i := range schemaFiles {
 		if strings.HasPrefix(schemaFiles[i], datatype+":") {
@@ -154,7 +134,7 @@ func schemaForDatatype(datatype string) (string, error) {
 		}
 	}
 	if schemaFile == "" {
-		schemaFile = filepath.Join("/var/spool/datatypes", datatype, "schema.json")
+		schemaFile = strings.Replace(datatypePathTemplate, "DATATYPE", datatype, 1)
 	}
 	vLogf("checking schema file %v for datatype %v", schemaFile, datatype)
 	contents, err := os.ReadFile(schemaFile)
