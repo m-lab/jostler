@@ -43,7 +43,7 @@ var (
 	errNoBucket       = errors.New("must specify GCS bucket")
 	errNoExperiment   = errors.New("must specify experiment")
 	errNoDatatype     = errors.New("must specify at least one datatype")
-	errSchemaNums     = errors.New("unequal schemas and datatypes")
+	errSchemaNums     = errors.New("more schema files than datatypes")
 	errSchemaNoMatch  = errors.New("does not match any specified datatypes")
 	errSchemaFilename = errors.New("is not in <datatype>:<pathname> format")
 )
@@ -114,8 +114,8 @@ func parseAndValidateCLI() error {
 	if *mlabNodeName != "" {
 		// Parse the M-Lab hostname (which should be in one of the
 		// following formats) into its constituent parts.
-		// v1: <machine>.<site>.measuremen-lab.org
-		// v2: <machine>.<site>.<project>.measurement-lab.org
+		// v1: <machine>.<site>.measurement-lab.org
+		// v2: <machine>-<site>.<project>.measurement-lab.org
 		if _, err := host.Parse(*mlabNodeName); err != nil {
 			return fmt.Errorf("failed to parse hostname: %w", err)
 		}
