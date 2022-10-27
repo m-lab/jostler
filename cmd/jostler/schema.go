@@ -42,7 +42,7 @@ var (
 	errUpload         = errors.New("failed to download schema")
 )
 
-// createNewTableSchemas creates new table schemas for all datatypes
+// createNewTableSchemaJSON creates new table schemas for all datatypes
 // and optionally uploads them to GCS.
 func createNewTableSchemaJSON(datatype string) ([]byte, error) {
 	newTableSchema, err := createNewTableSchema(datatype)

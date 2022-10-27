@@ -14,28 +14,28 @@ import (
 
 var (
 	// Flags related to GCS.
-	bucket       *string
-	gcsHomeDir   *string
-	mlabNodeName *string
+	bucket       string
+	gcsHomeDir   string
+	mlabNodeName string
 
 	// Flags related to bundles.
 	schemaFiles   flagx.StringArray
-	bundleSizeMax *uint
-	bundleAgeMax  *time.Duration
-	bundleNoRm    *bool
+	bundleSizeMax uint
+	bundleAgeMax  time.Duration
+	bundleNoRm    bool
 
 	// Flags related to where to watch for data (inotify events).
-	dataHomeDir    *string
+	dataHomeDir    string
 	extensions     flagx.StringArray
-	experiment     *string
+	experiment     string
 	datatypes      flagx.StringArray
-	missedAge      *time.Duration
-	missedInterval *time.Duration
+	missedAge      time.Duration
+	missedInterval time.Duration
 
 	// Flags related to program's execution.
-	local        *bool
-	verbose      *bool
-	testInterval *time.Duration
+	local        bool
+	verbose      bool
+	testInterval time.Duration
 
 	// Errors related to command line parsing and validation.
 	errExtraArgs      = errors.New("extra arguments on the command line")
@@ -50,28 +50,28 @@ var (
 
 func initFlags() {
 	// Flags related to GCS.
-	bucket = flag.String("gcs-bucket", "", "required - GCS bucket name")
-	gcsHomeDir = flag.String("gcs-home-dir", "autoload/v0", "home directory in GCS bucket under which bundles will be uploaded")
-	mlabNodeName = flag.String("mlab-node-name", "", "required - node name specified directly or via MLAB_NODE_NAME env variable")
+	flag.StringVar(&bucket, "gcs-bucket", "", "required - GCS bucket name")
+	flag.StringVar(&gcsHomeDir, "gcs-home-dir", "autoload/v0", "home directory in GCS bucket under which bundles will be uploaded")
+	flag.StringVar(&mlabNodeName, "mlab-node-name", "", "required - node name specified directly or via MLAB_NODE_NAME env variable")
 
 	// Flags related to bundles.
 	schemaFiles = flagx.StringArray{}
-	bundleSizeMax = flag.Uint("bundle-size-max", 20*1024*1024, "maximum bundle size in bytes before it is uploaded")
-	bundleAgeMax = flag.Duration("bundle-age-max", 1*time.Hour, "maximum bundle age before it is uploaded")
-	bundleNoRm = flag.Bool("no-rm", false, "do not remove files of a bundle after successful upload") // XXX debugging support - delete when done
+	flag.UintVar(&bundleSizeMax, "bundle-size-max", 20*1024*1024, "maximum bundle size in bytes before it is uploaded")
+	flag.DurationVar(&bundleAgeMax, "bundle-age-max", 1*time.Hour, "maximum bundle age before it is uploaded")
+	flag.BoolVar(&bundleNoRm, "no-rm", false, "do not remove files of a bundle after successful upload") // XXX debugging support - delete when done
 
 	// Flags related to where to watch for data (inotify events).
-	dataHomeDir = flag.String("data-home-dir", "/var/spool", "directory pathname under which experiment data is created")
+	flag.StringVar(&dataHomeDir, "data-home-dir", "/var/spool", "directory pathname under which experiment data is created")
 	extensions = flagx.StringArray{".json"}
-	experiment = flag.String("experiment", "", "required - name of the experiment (e.g., ndt)")
+	flag.StringVar(&experiment, "experiment", "", "required - name of the experiment (e.g., ndt)")
 	datatypes = flagx.StringArray{}
-	missedAge = flag.Duration("missed-age", 3*time.Hour, "minimum duration since a file's last modification time before it is considered missed")
-	missedInterval = flag.Duration("missed-interval", 30*time.Minute, "time interval between scans of filesystem for missed files")
+	flag.DurationVar(&missedAge, "missed-age", 3*time.Hour, "minimum duration since a file's last modification time before it is considered missed")
+	flag.DurationVar(&missedInterval, "missed-interval", 30*time.Minute, "time interval between scans of filesystem for missed files")
 
 	// Flags related to program's execution.
-	local = flag.Bool("local", false, "run locally and create schema files for each datatype")
-	verbose = flag.Bool("verbose", false, "enable verbose mode")
-	testInterval = flag.Duration("test-interval", 0, "time interval to stop running (for test purposes only)")
+	flag.BoolVar(&local, "local", false, "run locally and create schema files for each datatype")
+	flag.BoolVar(&verbose, "verbose", false, "enable verbose mode")
+	flag.DurationVar(&testInterval, "test-interval", 0, "time interval to stop running (for test purposes only)")
 
 	flag.Var(&schemaFiles, "schema-file", "schema for each datatype in the format <datatype>:<pathname>")
 	flag.Var(&extensions, "extensions", "filename extensions to watch within <data-dir>/<experiment>")
@@ -100,23 +100,23 @@ func parseAndValidateCLI() error {
 	if extensions == nil {
 		extensions = []string{".json"}
 	}
-	if !*local {
-		if *mlabNodeName == "" {
+	if !local {
+		if mlabNodeName == "" {
 			return errNoNode
 		}
-		if *bucket == "" {
+		if bucket == "" {
 			return errNoBucket
 		}
 	}
-	if *experiment == "" {
+	if experiment == "" {
 		return errNoExperiment
 	}
-	if *mlabNodeName != "" {
+	if mlabNodeName != "" {
 		// Parse the M-Lab hostname (which should be in one of the
 		// following formats) into its constituent parts.
 		// v1: <machine>.<site>.measurement-lab.org
 		// v2: <machine>-<site>.<project>.measurement-lab.org
-		if _, err := host.Parse(*mlabNodeName); err != nil {
+		if _, err := host.Parse(mlabNodeName); err != nil {
 			return fmt.Errorf("failed to parse hostname: %w", err)
 		}
 	}

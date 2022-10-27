@@ -3,10 +3,10 @@
 set -eu
 
 readonly TABLES=(
-	mlab-sandbox:saied.hello1
-	mlab-sandbox:saied.foo1
-	mlab-sandbox:ndt.scamper1
-	mlab-cloudflare:speedtest.speed2
+	"mlab-sandbox:${USER}.hello1"
+	"mlab-sandbox:${USER}.foo1"
+	"mlab-sandbox:ndt.scamper1"
+	"mlab-cloudflare:speedtest.speed2"
 )
 
 readonly COMMON_FLAGS=(
@@ -22,8 +22,7 @@ main() {
 }
 
 build() {
-	#shellcheck disable=SC2046
-	execute go build -race -o jostler $(find ../cmd/jostler -name '*.go' | grep -v '_test\.go')
+	execute go build -race -o jostler ../cmd/jostler
 }
 
 run_tests() {

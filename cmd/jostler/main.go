@@ -68,20 +68,20 @@ func main() {
 	}
 	// In verbose mode, enable verbose logging by all packages
 	// (mostly for debugging).
-	if *verbose {
+	if verbose {
 		gcs.Verbose(vLogf)
 		watchdir.Verbose(vLogf)
 		uploadbundle.Verbose(vLogf)
 	}
 
-	if *local {
+	if local {
 		// Short-lived interactive mode.
 		if err := saveTableSchemasLocal(); err != nil {
 			fatal(err)
 		}
 	} else {
 		// Long-lived non-interactive mode.
-		if err := uploadTableSchemas(*bucket, *experiment, datatypes); err != nil {
+		if err := uploadTableSchemas(bucket, experiment, datatypes); err != nil {
 			fatal(err)
 		}
 		if err := watchAndUpload(); err != nil {
@@ -131,7 +131,7 @@ func watchAndUpload() error {
 	// 3 seconds) after which we cancel the main context to wrap up
 	// and return.
 	if testInterval.Abs() != 0 {
-		<-time.After(*testInterval)
+		<-time.After(testInterval)
 		mainCancel()
 	}
 
@@ -147,8 +147,8 @@ func watchAndUpload() error {
 // specified directory and notifies its client of new (and potentially
 // missed) files.
 func startWatcher(mainCtx context.Context, mainCancel context.CancelFunc, wg *sync.WaitGroup, datatype string, watchEvents []notify.Event) (*watchdir.WatchDir, error) {
-	watchDir := filepath.Join(*dataHomeDir, *experiment, datatype)
-	wdClient, err := watchdir.New(watchDir, extensions, watchEvents, *missedAge, *missedInterval)
+	watchDir := filepath.Join(dataHomeDir, experiment, datatype)
+	wdClient, err := watchdir.New(watchDir, extensions, watchEvents, missedAge, missedInterval)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate watcher: %w", err)
 	}
@@ -165,22 +165,22 @@ func startWatcher(mainCtx context.Context, mainCancel context.CancelFunc, wg *sy
 // startUploader start a bundle uploader goroutine that bundles
 // individual JSON files into JSONL bundle and uploads it to GCS.
 func startUploader(mainCtx context.Context, mainCancel context.CancelFunc, wg *sync.WaitGroup, datatype string, wdClient *watchdir.WatchDir) (*uploadbundle.UploadBundle, error) {
-	nameParts, err := host.Parse(*mlabNodeName)
+	nameParts, err := host.Parse(mlabNodeName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse hostname: %w", err)
 	}
 
 	gcsConf := uploadbundle.GCSConfig{
-		Bucket:  *bucket,
-		DataDir: filepath.Join(*gcsHomeDir, *experiment, datatype),
-		BaseID:  fmt.Sprintf("%s-%s-%s-%s", datatype, nameParts.Machine, nameParts.Site, *experiment),
+		Bucket:  bucket,
+		DataDir: filepath.Join(gcsHomeDir, experiment, datatype),
+		BaseID:  fmt.Sprintf("%s-%s-%s-%s", datatype, nameParts.Machine, nameParts.Site, experiment),
 	}
 	bundleConf := uploadbundle.BundleConfig{
 		Datatype: datatype,
-		DataDir:  filepath.Join(*dataHomeDir, *experiment, datatype),
-		SizeMax:  *bundleSizeMax,
-		AgeMax:   *bundleAgeMax,
-		NoRm:     *bundleNoRm,
+		DataDir:  filepath.Join(dataHomeDir, experiment, datatype),
+		SizeMax:  bundleSizeMax,
+		AgeMax:   bundleAgeMax,
+		NoRm:     bundleNoRm,
 	}
 	ubClient, err := uploadbundle.New(wdClient, gcsConf, bundleConf)
 	if err != nil {
@@ -208,7 +208,7 @@ func vLogf(format string, args ...interface{}) {
 		"blue":  "\033[00;34m",
 		"end":   "\033[0m",
 	}
-	if !*verbose {
+	if !verbose {
 		return
 	}
 	pc, file, line, ok := runtime.Caller(1)
