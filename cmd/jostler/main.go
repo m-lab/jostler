@@ -130,7 +130,7 @@ func watchAndUpload() error {
 	// When testing, we set testInterval to a non-zero value (e.g.,
 	// 3 seconds) after which we cancel the main context to wrap up
 	// and return.
-	if testInterval.Abs() != 0 {
+	if testInterval.Seconds() != 0 {
 		<-time.After(testInterval)
 		mainCancel()
 	}
