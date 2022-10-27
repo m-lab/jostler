@@ -23,6 +23,7 @@ linters:
   disable:
      - deadcode         # deprecated since v1.49.0, replaced by unused
      - exhaustivestruct # deprecated since v1.46.0, replaced by exhaustruct
+     - exhaustruct      # not useful
      - gci              # N/A https://github.com/daixiang0/gci
      - gochecknoglobals # N/A https://github.com/leighmcculloch/gochecknoglobals
      - gochecknoinits   # N/A https://github.com/leighmcculloch/gochecknoinits

@@ -11,15 +11,14 @@ import (
 )
 
 const (
-	testBucket     = "mlab-sandbox"
+	testBucket     = "pusher-mlab-sandbox"
 	testNode       = "mlab1-lga01.mlab-sandbox.measurement-lab.org"
 	testExpr       = "ndt"
 	testDatatype   = "scamper1"
 	testSchemaFile = "scamper1:testdata/scamper1-schema.json"
 )
 
-// TestCLI tests that specifying an invalid or incomplete command line
-// is not ignored.
+// TestCLI tests non-interactive CLI invocations.
 func TestCLI(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
@@ -27,7 +26,26 @@ func TestCLI(t *testing.T) {
 		wantErrStr string
 		args       []string
 	}{
+		// Interactive mode.
 		{"help", flag.ErrHelp.Error(), []string{"-h"}},
+		{"non-existent default schema file", errReadSchema.Error(), []string{
+			"-local",
+			"-experiment", testExpr,
+			"-datatype", testDatatype,
+		}},
+		{"invalid foo1", errUnmarshal.Error(), []string{
+			"-local",
+			"-experiment", testExpr,
+			"-datatype", "foo1",
+			"-schema-file", "foo1:testdata/foo1-invalid-schema.json",
+		}},
+		{"valid foo1", "", []string{
+			"-local",
+			"-experiment", testExpr,
+			"-datatype", "foo1",
+			"-schema-file", "foo1:testdata/foo1-valid-schema.json",
+		}},
+		// Non-interactive mode.
 		{"undefined flag", "provided but not defined", []string{"-undefined-flag"}},
 		{"extra args", errExtraArgs.Error(), []string{"extra-arg"}},
 		{"no node", errNoNode.Error(), []string{
@@ -78,43 +96,44 @@ func TestCLI(t *testing.T) {
 			"-datatype", testDatatype,
 			"-schema-file", "invalid:schema.json",
 		}},
-		{"non-existent specified schema file", errReadFile.Error(), []string{
+		{"non-existent specified schema file", errReadSchema.Error(), []string{
 			"-gcs-bucket", testBucket,
 			"-mlab-node-name", testNode,
 			"-experiment", testExpr,
 			"-datatype", testDatatype,
 			"-schema-file", testSchemaFile,
 		}},
-		{"non-existent default schema file", errReadFile.Error(), []string{
+		{"non-existent default schema file", errReadSchema.Error(), []string{
 			"-gcs-bucket", testBucket,
 			"-mlab-node-name", testNode,
 			"-experiment", testExpr,
 			"-datatype", testDatatype,
 		}},
-		{"generate schema, non-existent default schema file", errReadFile.Error(), []string{
-			"-schema",
-			"-datatype", testDatatype,
-		}},
-		{"generate schema for valid foo1", "", []string{
-			"-schema",
-			"-datatype", "foo1",
-			"-schema-file", "foo1:testdata/foo1-valid-schema.json",
-		}},
-		{"generate schema for invalid foo1", errUnmarshal.Error(), []string{
-			"-schema",
+		{"invalid foo1", errUnmarshal.Error(), []string{
+			"-gcs-bucket", testBucket,
+			"-mlab-node-name", testNode,
+			"-experiment", testExpr,
 			"-datatype", "foo1",
 			"-schema-file", "foo1:testdata/foo1-invalid-schema.json",
 		}},
-		{"good invocation", "", []string{
+		{"good invocation, upload not needed", "", []string{
 			"-gcs-bucket", testBucket,
 			"-mlab-node-name", testNode,
 			"-experiment", testExpr,
 			"-datatype", "foo1",
 			"-schema-file", "foo1:testdata/foo1-valid-schema.json",
 		}},
+		{"good invocation, upload needed", "", []string{
+			"-gcs-bucket", testBucket,
+			"-mlab-node-name", testNode,
+			"-experiment", testExpr,
+			"-datatype", "foo1",
+			"-schema-file", "foo1:testdata/foo1-valid-superset-schema.json",
+		}},
 	}
-	for _, test := range tests {
-		t.Logf("\n\n>>> running test: %v", test.name)
+	for i, test := range tests {
+		t.Logf("\n\n>>> running test %02d: %v", i, test.name)
+		t.Logf(">>> %v", strings.Join(test.args, " "))
 		callMain(t, test.args, test.wantErrStr)
 	}
 }
