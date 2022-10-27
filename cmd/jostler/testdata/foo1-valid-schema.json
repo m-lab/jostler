@@ -1,28 +1,22 @@
-{
-  "fields": [
-    {
-      "fields": [
-        {
-          "mode": "NULLABLE",
-          "name": "Field1",
-          "type": "INTEGER"
-        },
-        {
-          "mode": "NULLABLE",
-          "name": "Field2",
-          "type": "FLOAT"
-        },
-        {
-          "mode": "NULLABLE",
-          "name": "NMSVersion",
-          "type": "STRING"
-        },
-        {
-          "mode": "NULLABLE",
-          "name": "UUID",
-          "type": "STRING"
-        }
-      ]
-    }
-  ]
-}
+[
+  {
+    "mode": "NULLABLE",
+    "name": "Field1",
+    "type": "INTEGER"
+  },
+  {
+    "mode": "NULLABLE",
+    "name": "Field2",
+    "type": "FLOAT"
+  },
+  {
+    "mode": "NULLABLE",
+    "name": "NMSVersion",
+    "type": "STRING"
+  },
+  {
+    "mode": "NULLABLE",
+    "name": "UUID",
+    "type": "STRING"
+  }
+]

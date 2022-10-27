@@ -33,7 +33,7 @@ var (
 	missedInterval *time.Duration
 
 	// Flags related to program's execution.
-	genSchema    *bool
+	local        *bool
 	verbose      *bool
 	testInterval *time.Duration
 
@@ -69,7 +69,7 @@ func initFlags() {
 	missedInterval = flag.Duration("missed-interval", 30*time.Minute, "time interval between scans of filesystem for missed files")
 
 	// Flags related to program's execution.
-	genSchema = flag.Bool("schema", false, "generate schema files for each datatype")
+	local = flag.Bool("local", false, "run locally and create schema files for each datatype")
 	verbose = flag.Bool("verbose", false, "enable verbose mode")
 	testInterval = flag.Duration("test-interval", 0, "time interval to stop running (for test purposes only)")
 
@@ -100,16 +100,16 @@ func parseAndValidateCLI() error {
 	if extensions == nil {
 		extensions = []string{".json"}
 	}
-	if !*genSchema {
+	if !*local {
 		if *mlabNodeName == "" {
 			return errNoNode
 		}
 		if *bucket == "" {
 			return errNoBucket
 		}
-		if *experiment == "" {
-			return errNoExperiment
-		}
+	}
+	if *experiment == "" {
+		return errNoExperiment
 	}
 	if *mlabNodeName != "" {
 		// Parse the M-Lab hostname (which should be in one of the
@@ -155,11 +155,11 @@ func validateSchemaFlags() error {
 }
 
 // validateSchemaFiles() validates the schema files of all datatypes
-// whether their paths were explicitly specified on the command line
-// or not (i.e., assumed to be in their default locations).
+// regardless of whether their paths were explicitly specified on the
+// command line or not (i.e., assumed to be in their default locations).
 func validateSchemaFiles() error {
 	for _, datatype := range datatypes {
-		if _, err := schemaForDatatype(datatype); err != nil {
+		if err := schemaForDatatype(datatype); err != nil {
 			return err
 		}
 	}
