@@ -2,25 +2,34 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"flag"
 	"log"
 	"os"
 	"strings"
 	"testing"
+
+	"cloud.google.com/go/storage"
+	"github.com/m-lab/jostler/internal/gcs"
 )
 
 const (
-	testBucket     = "pusher-mlab-sandbox"
 	testNode       = "mlab1-lga01.mlab-sandbox.measurement-lab.org"
-	testExpr       = "ndt"
-	testDatatype   = "scamper1"
-	testSchemaFile = "scamper1:testdata/scamper1-schema.json"
+	testBucket     = "pusher-mlab-sandbox"
+	testObject     = "autoload/v0/datatypes/jostler/foo1-schema.json"
+	testExpr       = "jostler"
+	testDatatype   = "foo1"
+	testSchemaFile = "foo1:testdata/foo1:-schema.json"
 )
 
 // TestCLI tests non-interactive CLI invocations.
-func TestCLI(t *testing.T) {
-	t.Parallel()
+//
+// The comment nolint:funlen,paralleltest tells golangci-lint
+// not to run funlen and paralleltest linters because it's OK
+// that the function length is more then 120 lines and also
+// because we should not run these tests in parallel.
+func TestCLI(t *testing.T) { //nolint:funlen,paralleltest
 	tests := []struct {
 		name       string
 		wantErrStr string
@@ -116,23 +125,52 @@ func TestCLI(t *testing.T) {
 			"-datatype", "foo1",
 			"-schema-file", "foo1:testdata/foo1-invalid-schema.json",
 		}},
-		{"good invocation, upload not needed", "", []string{
+		// The following four tests cover the four scenarios
+		// described in main.go and the order is important.
+		{"scenario 1", "", []string{
 			"-gcs-bucket", testBucket,
 			"-mlab-node-name", testNode,
 			"-experiment", testExpr,
 			"-datatype", "foo1",
 			"-schema-file", "foo1:testdata/foo1-valid-schema.json",
 		}},
-		{"good invocation, upload needed", "", []string{
+		{"scenario 2", "", []string{
+			"-gcs-bucket", testBucket,
+			"-mlab-node-name", testNode,
+			"-experiment", testExpr,
+			"-datatype", "foo1",
+			"-schema-file", "foo1:testdata/foo1-valid-schema.json",
+		}},
+		{"scenario 3", "", []string{
 			"-gcs-bucket", testBucket,
 			"-mlab-node-name", testNode,
 			"-experiment", testExpr,
 			"-datatype", "foo1",
 			"-schema-file", "foo1:testdata/foo1-valid-superset-schema.json",
 		}},
+		{"scenario 4", errOnlyInOld.Error(), []string{
+			"-gcs-bucket", testBucket,
+			"-mlab-node-name", testNode,
+			"-experiment", testExpr,
+			"-datatype", "foo1",
+			"-schema-file", "foo1:testdata/foo1-valid-schema.json",
+		}},
+	}
+	// Remove gs://pusher-mlab-sandbox/autoload/v0/datatypes/jostler/foo1-schema.json
+	// before running the tests.
+	if err := gcs.Delete(context.Background(), testBucket, testObject); err != nil {
+		if !errors.Is(err, storage.ErrObjectNotExist) {
+			t.Fatalf("'%v:%v': %v", testBucket, testObject, err)
+		}
 	}
 	for i, test := range tests {
-		t.Logf("\n\n>>> running test %02d: %v", i, test.name)
+		var s string
+		if test.wantErrStr == "" {
+			s = "should succeed"
+		} else {
+			s = "should fail"
+		}
+		t.Logf(">>> test %02d: %s: %v", i, s, test.name)
 		t.Logf(">>> %v", strings.Join(test.args, " "))
 		callMain(t, test.args, test.wantErrStr)
 	}

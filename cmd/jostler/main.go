@@ -26,7 +26,7 @@
 //
 //  1. Uploads new to GCS.
 //  2. Doesn't upload.
-//  3. Doesn't upload.
+//  3. Uploads new to GCS.
 //  4. Fails to run.
 package main
 
