@@ -11,7 +11,7 @@
 # not have M-Lab's standard columns.  If the table has standard columns,
 # they must be manually deleted.
 #
-# Once there is a datatype schema, the script runs `jostler` in the #
+# Once there is a datatype schema, the script runs `jostler` in the
 # interactive mode (-local) to create and save a new table schema with
 # its own standard columns (see ../api).
 #

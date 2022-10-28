@@ -20,7 +20,7 @@ const (
 	testObject     = "autoload/v0/datatypes/jostler/foo1-schema.json"
 	testExpr       = "jostler"
 	testDatatype   = "foo1"
-	testSchemaFile = "foo1::testdata/foo1:-schema.json"
+	testSchemaFile = "foo1:testdata/foo1:-schema.json"
 )
 
 // TestCLI tests non-interactive CLI invocations.
