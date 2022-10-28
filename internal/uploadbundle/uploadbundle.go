@@ -49,7 +49,7 @@ type GCSConfig struct {
 
 // BundleConfig defines bundle configuration options.
 type BundleConfig struct {
-	Datatype string        // datatype (e.g., ndt)
+	Datatype string        // datatype (e.g., scamper1)
 	DataDir  string        // path to datatype subdirectory on local disk (e.g., /cache/data/<experiment>/<datatype>)
 	SizeMax  uint          // bundle will be uploaded when it reaches this size
 	AgeMax   time.Duration // bundle will be uploaded when it reaches this age
