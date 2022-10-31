@@ -7,20 +7,27 @@ import (
 	"flag"
 	"log"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"cloud.google.com/go/storage"
 	"github.com/m-lab/jostler/internal/gcs"
+	"github.com/m-lab/jostler/internal/schema"
+)
+
+type (
+	download func(context.Context, string, string) ([]byte, error) // gcs.Download signature
+	upload   func(context.Context, string, string, []byte) error   // gcs.Upload signature
 )
 
 const (
 	testNode       = "mlab1-lga01.mlab-sandbox.measurement-lab.org"
 	testBucket     = "pusher-mlab-sandbox"
 	testObject     = "autoload/v0/datatypes/jostler/foo1-schema.json"
-	testExpr       = "jostler"
+	testExperiment = "jostler"
 	testDatatype   = "foo1"
-	testSchemaFile = "foo1:testdata/foo1:-schema.json"
+	testSchemaFile = "foo1:testdata/foo1:non-existent-schema.json"
 )
 
 // TestCLI tests non-interactive CLI invocations.
@@ -30,131 +37,234 @@ const (
 // that the function length is more then 120 lines and also
 // because we should not run these tests in parallel.
 func TestCLI(t *testing.T) { //nolint:funlen,paralleltest
+	saveGcsDownload := schema.GCSDownload
+	saveGcsUpload := schema.GCSUpload
+	defer func() {
+		schema.GCSDownload = saveGcsDownload
+		schema.GCSUpload = saveGcsUpload
+	}()
 	tests := []struct {
-		name       string
-		wantErrStr string
-		args       []string
+		name            string   // name of the test
+		rmTblSchemaFile bool     // if true, remove table schema file before running the test
+		wantErrStr      string   // error message
+		args            []string // flags and arguments
+		download        download // mock GCS download function
+		upload          upload   // mock GCS upload function
 	}{
 		// Interactive mode.
-		{"help", flag.ErrHelp.Error(), []string{"-h"}},
-		{"non-existent default schema file", errReadSchema.Error(), []string{
-			"-local",
-			"-experiment", testExpr,
-			"-datatype", testDatatype,
-		}},
-		{"invalid foo1", errUnmarshal.Error(), []string{
-			"-local",
-			"-experiment", testExpr,
-			"-datatype", "foo1",
-			"-schema-file", "foo1:testdata/foo1-invalid-schema.json",
-		}},
-		{"valid foo1", "", []string{
-			"-local",
-			"-experiment", testExpr,
-			"-datatype", "foo1",
-			"-schema-file", "foo1:testdata/foo1-valid-schema.json",
-		}},
+		{
+			"help", false, flag.ErrHelp.Error(),
+			[]string{
+				"-h",
+			},
+			panicGCSDownload, panicGCSUpload,
+		},
+		{
+			"non-existent default schema file", false, errReadFile.Error(),
+			[]string{
+				"-local",
+				"-experiment", testExperiment,
+				"-datatype", testDatatype,
+			},
+			panicGCSDownload, panicGCSUpload,
+		},
+		{
+			"invalid foo1", false, errUnmarshalFile.Error(),
+			[]string{
+				"-local",
+				"-experiment", testExperiment,
+				"-datatype", "foo1",
+				"-schema-file", "foo1:testdata/foo1-invalid-schema.json",
+			},
+			panicGCSDownload, panicGCSUpload,
+		},
+		{
+			"valid foo1", false, "",
+			[]string{
+				"-local",
+				"-experiment", testExperiment,
+				"-datatype", "foo1",
+				"-schema-file", "foo1:testdata/foo1-valid-schema.json",
+			},
+			panicGCSDownload, panicGCSUpload,
+		},
 		// Non-interactive mode.
-		{"undefined flag", "provided but not defined", []string{"-undefined-flag"}},
-		{"extra args", errExtraArgs.Error(), []string{"extra-arg"}},
-		{"no node", errNoNode.Error(), []string{
-			"-gcs-bucket", testBucket,
-			"-experiment", testExpr,
-			"-datatype", testDatatype,
-		}},
-		{"no bucket", errNoBucket.Error(), []string{
-			"-mlab-node-name", testNode,
-			"-experiment", testExpr,
-			"-datatype", testDatatype,
-		}},
-		{"no experiment", errNoExperiment.Error(), []string{
-			"-gcs-bucket", testBucket,
-			"-mlab-node-name", testNode,
-			"-datatype", testDatatype,
-		}},
-		{"no datatype", errNoDatatype.Error(), []string{
-			"-gcs-bucket", testBucket,
-			"-mlab-node-name", testNode,
-			"-experiment", testExpr,
-		}},
-		{"invalid hostname", "Invalid hostname", []string{
-			"-gcs-bucket", testBucket,
-			"-mlab-node-name", "hostname",
-			"-experiment", testExpr,
-			"-datatype", testDatatype,
-		}},
-		{"unequal schemas and datatypes", errSchemaNums.Error(), []string{
-			"-gcs-bucket", testBucket,
-			"-mlab-node-name", testNode,
-			"-experiment", testExpr,
-			"-datatype", testDatatype,
-			"-schema-file", "schema1.json",
-			"-schema-file", "schema2.json",
-		}},
-		{"bad schema filename", errSchemaFilename.Error(), []string{
-			"-gcs-bucket", testBucket,
-			"-mlab-node-name", testNode,
-			"-experiment", testExpr,
-			"-datatype", testDatatype,
-			"-schema-file", "schema.json",
-		}},
-		{"schema datatype mismatch", errSchemaNoMatch.Error(), []string{
-			"-gcs-bucket", testBucket,
-			"-mlab-node-name", testNode,
-			"-experiment", testExpr,
-			"-datatype", testDatatype,
-			"-schema-file", "invalid:schema.json",
-		}},
-		{"non-existent specified schema file", errReadSchema.Error(), []string{
-			"-gcs-bucket", testBucket,
-			"-mlab-node-name", testNode,
-			"-experiment", testExpr,
-			"-datatype", testDatatype,
-			"-schema-file", testSchemaFile,
-		}},
-		{"non-existent default schema file", errReadSchema.Error(), []string{
-			"-gcs-bucket", testBucket,
-			"-mlab-node-name", testNode,
-			"-experiment", testExpr,
-			"-datatype", testDatatype,
-		}},
-		{"invalid foo1", errUnmarshal.Error(), []string{
-			"-gcs-bucket", testBucket,
-			"-mlab-node-name", testNode,
-			"-experiment", testExpr,
-			"-datatype", "foo1",
-			"-schema-file", "foo1:testdata/foo1-invalid-schema.json",
-		}},
+		{
+			"undefined flag", false, "provided but not defined",
+			[]string{
+				"-undefined-flag",
+			},
+			panicGCSDownload, panicGCSUpload,
+		},
+		{
+			"extra args", false, errExtraArgs.Error(),
+			[]string{
+				"extra-arg",
+			},
+			panicGCSDownload, panicGCSUpload,
+		},
+		{
+			"no node", false, errNoNode.Error(),
+			[]string{
+				"-gcs-bucket", testBucket,
+				"-experiment", testExperiment,
+				"-datatype", testDatatype,
+			},
+			panicGCSDownload, panicGCSUpload,
+		},
+		{
+			"no bucket", false, errNoBucket.Error(),
+			[]string{
+				"-mlab-node-name", testNode,
+				"-experiment", testExperiment,
+				"-datatype", testDatatype,
+			},
+			panicGCSDownload, panicGCSUpload,
+		},
+		{
+			"no experiment", false, errNoExperiment.Error(),
+			[]string{
+				"-gcs-bucket", testBucket,
+				"-mlab-node-name", testNode,
+				"-datatype", testDatatype,
+			},
+			panicGCSDownload, panicGCSUpload,
+		},
+		{
+			"no datatype", false, errNoDatatype.Error(),
+			[]string{
+				"-gcs-bucket", testBucket,
+				"-mlab-node-name", testNode,
+				"-experiment", testExperiment,
+			},
+			panicGCSDownload, panicGCSUpload,
+		},
+		{
+			"invalid hostname", false, "Invalid hostname",
+			[]string{
+				"-gcs-bucket", testBucket,
+				"-mlab-node-name", "hostname",
+				"-experiment", testExperiment,
+				"-datatype", testDatatype,
+			},
+			panicGCSDownload, panicGCSUpload,
+		},
+		{
+			"unequal schemas and datatypes", false, errSchemaNums.Error(),
+			[]string{
+				"-gcs-bucket", testBucket,
+				"-mlab-node-name", testNode,
+				"-experiment", testExperiment,
+				"-datatype", testDatatype,
+				"-schema-file", "schema1.json",
+				"-schema-file", "schema2.json",
+			},
+			panicGCSDownload, panicGCSUpload,
+		},
+		{
+			"bad schema filename", false, errSchemaFilename.Error(),
+			[]string{
+				"-gcs-bucket", testBucket,
+				"-mlab-node-name", testNode,
+				"-experiment", testExperiment,
+				"-datatype", testDatatype,
+				"-schema-file", "schema.json",
+			},
+			panicGCSDownload, panicGCSUpload,
+		},
+		{
+			"schema datatype mismatch", false, errSchemaNoMatch.Error(),
+			[]string{
+				"-gcs-bucket", testBucket,
+				"-mlab-node-name", testNode,
+				"-experiment", testExperiment,
+				"-datatype", testDatatype,
+				"-schema-file", "invalid:schema.json",
+			},
+			panicGCSDownload, panicGCSUpload,
+		},
+		{
+			"non-existent specified schema file", false, errReadFile.Error(),
+			[]string{
+				"-gcs-bucket", testBucket,
+				"-mlab-node-name", testNode,
+				"-experiment", testExperiment,
+				"-datatype", testDatatype,
+				"-schema-file", testSchemaFile,
+			},
+			panicGCSDownload, panicGCSUpload,
+		},
+		{
+			"non-existent default schema file", false, errReadFile.Error(),
+			[]string{
+				"-gcs-bucket", testBucket,
+				"-mlab-node-name", testNode,
+				"-experiment", testExperiment,
+				"-datatype", testDatatype,
+			},
+			panicGCSDownload, panicGCSUpload,
+		},
+		{
+			"invalid foo1", false, errUnmarshalFile.Error(),
+			[]string{
+				"-gcs-bucket", testBucket,
+				"-mlab-node-name", testNode,
+				"-experiment", testExperiment,
+				"-datatype", "foo1",
+				"-schema-file", "foo1:testdata/foo1-invalid-schema.json",
+			},
+			panicGCSDownload, panicGCSUpload,
+		},
 		// The following four tests cover the four scenarios
 		// described in main.go and the order is important.
-		{"scenario 1", "", []string{
-			"-gcs-bucket", testBucket,
-			"-mlab-node-name", testNode,
-			"-experiment", testExpr,
-			"-datatype", "foo1",
-			"-schema-file", "foo1:testdata/foo1-valid-schema.json",
-		}},
-		{"scenario 2", "", []string{
-			"-gcs-bucket", testBucket,
-			"-mlab-node-name", testNode,
-			"-experiment", testExpr,
-			"-datatype", "foo1",
-			"-schema-file", "foo1:testdata/foo1-valid-schema.json",
-		}},
-		{"scenario 3", "", []string{
-			"-gcs-bucket", testBucket,
-			"-mlab-node-name", testNode,
-			"-experiment", testExpr,
-			"-datatype", "foo1",
-			"-schema-file", "foo1:testdata/foo1-valid-superset-schema.json",
-		}},
-		{"scenario 4", errOnlyInOld.Error(), []string{
-			"-gcs-bucket", testBucket,
-			"-mlab-node-name", testNode,
-			"-experiment", testExpr,
-			"-datatype", "foo1",
-			"-schema-file", "foo1:testdata/foo1-valid-schema.json",
-		}},
+		// Scenario 1 - old doesn't exist, should upload.
+		// Scenario 2 - old exists and matches new, should not upload.
+		// Scenario 3 - new is a superset of old, should upload.
+		// Scenario 4 - new is incompatible with old, should not upload.
+		{
+			"scenario 1", true, "",
+			[]string{
+				"-gcs-bucket", testBucket,
+				"-mlab-node-name", testNode,
+				"-experiment", testExperiment,
+				"-datatype", "foo1",
+				"-schema-file", "foo1:testdata/foo1-valid-schema.json",
+			},
+			fakeGCSDownload, fakeGCSUpload,
+		},
+		{
+			"scenario 2", false, "",
+			[]string{
+				"-gcs-bucket", testBucket,
+				"-mlab-node-name", testNode,
+				"-experiment", testExperiment,
+				"-datatype", "foo1",
+				"-schema-file", "foo1:testdata/foo1-valid-schema.json",
+			},
+			fakeGCSDownload, panicGCSUpload,
+		},
+		{
+			"scenario 3", false, "",
+			[]string{
+				"-gcs-bucket", testBucket,
+				"-mlab-node-name", testNode,
+				"-experiment", testExperiment,
+				"-datatype", "foo1",
+				"-schema-file", "foo1:testdata/foo1-valid-superset-schema.json",
+			},
+			fakeGCSDownload, fakeGCSUpload,
+		},
+		{
+			"scenario 4", false, schema.ErrOnlyInOld.Error(),
+			[]string{
+				"-gcs-bucket", testBucket,
+				"-mlab-node-name", testNode,
+				"-experiment", testExperiment,
+				"-datatype", "foo1",
+				"-schema-file", "foo1:testdata/foo1-valid-schema.json",
+			},
+			fakeGCSDownload, panicGCSUpload,
+		},
 	}
 	// Remove gs://pusher-mlab-sandbox/autoload/v0/datatypes/jostler/foo1-schema.json
 	// before running the tests.
@@ -164,6 +274,11 @@ func TestCLI(t *testing.T) { //nolint:funlen,paralleltest
 		}
 	}
 	for i, test := range tests {
+		if test.rmTblSchemaFile {
+			os.RemoveAll("testdata/foo1-schema.json")
+		}
+		schema.GCSDownload = test.download
+		schema.GCSUpload = test.upload
 		var s string
 		if test.wantErrStr == "" {
 			s = "should succeed"
@@ -171,7 +286,6 @@ func TestCLI(t *testing.T) { //nolint:funlen,paralleltest
 			s = "should fail"
 		}
 		t.Logf(">>> test %02d: %s: %v", i, s, test.name)
-		t.Logf(">>> %v", strings.Join(test.args, " "))
 		callMain(t, test.args, test.wantErrStr)
 	}
 }
@@ -207,6 +321,7 @@ func callMain(t *testing.T, osArgs []string, wantErrStr string) {
 	os.Args = []string{"jostler-test", "-test-interval", "2s", "-verbose"}
 	os.Args = append(os.Args, osArgs...)
 	fatal = log.Panic
+	t.Logf(">>> %v", strings.Join(os.Args, " "))
 	main()
 }
 
@@ -225,4 +340,27 @@ func recoverError(r any) error {
 		err = errors.New("unknown panic") //nolint
 	}
 	return err
+}
+
+func panicGCSDownload(ctx context.Context, bucket, objPath string) ([]byte, error) {
+	panic("unexpected call to gcs.Download()")
+}
+
+func panicGCSUpload(ctx context.Context, bucket, objPath string, tblSchemaJSON []byte) error {
+	panic("unexpected call to gcs.Upload()")
+}
+
+func fakeGCSDownload(ctx context.Context, bucket, objPath string) ([]byte, error) {
+	contents, err := os.ReadFile(filepath.Join("testdata", filepath.Base(objPath)))
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil, storage.ErrObjectNotExist
+		}
+		return nil, err //nolint:wrapcheck
+	}
+	return contents, nil
+}
+
+func fakeGCSUpload(ctx context.Context, bucket, objPath string, tblSchemaJSON []byte) error {
+	return os.WriteFile(filepath.Join("testdata", filepath.Base(objPath)), tblSchemaJSON, 0o666) //nolint:wrapcheck
 }

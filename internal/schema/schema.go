@@ -1,0 +1,325 @@
+// Package schema implements code that handles datatype and table schemas.
+package schema
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"os"
+	"sort"
+	"strings"
+
+	"cloud.google.com/go/bigquery"
+	"cloud.google.com/go/storage"
+	"github.com/m-lab/jostler/api"
+	"github.com/m-lab/jostler/internal/gcs"
+)
+
+type (
+	bqField   map[string]interface{}
+	visitFunc func([]string, bqField) error
+	mapDiff   struct {
+		nInOld int
+		nInNew int
+		nType  int
+	}
+)
+
+var (
+	datatypePathTemplate = "/var/spool/datatypes/{{DATATYPE}}/schema.json"
+	objectPrefixTemplate = "autoload/v0/datatypes/{{EXPERIMENT}}"
+
+	ErrReadSchema     = errors.New("failed to read schema file")
+	ErrSchemaFromJSON = errors.New("failed to create schema from JSON")
+	ErrMarshal        = errors.New("failed to marshal schema")
+	ErrUnmarshal      = errors.New("failed to unmarshal schema")
+	ErrCompare        = errors.New("failed to compare schema")
+	ErrOnlyInOld      = errors.New("field(s) only in old schema")
+	ErrTypeMismatch   = errors.New("difference(s) in schema field types")
+	ErrType           = errors.New("unexpected type")
+	ErrDownload       = errors.New("failed to download schema")
+	ErrUpload         = errors.New("failed to upload schema")
+
+	// Testing and debugging support.
+	GCSDownload = gcs.Download
+	GCSUpload   = gcs.Upload
+	verbose     = func(fmt string, args ...interface{}) {}
+)
+
+// Verbose prints verbose messages if initialized by the caller.
+func Verbose(v func(string, ...interface{})) {
+	verbose = v
+}
+
+// PathForDatatype returns the path of the schema file for the given
+// datatype.  If the path was explicitly specified on the command line,
+// it is used.  Otherwise the default location is assumed.
+func PathForDatatype(datatype string, schemaFiles []string) string {
+	for i := range schemaFiles {
+		if strings.HasPrefix(schemaFiles[i], datatype+":") {
+			return (schemaFiles[i])[len(datatype)+1:]
+		}
+	}
+	return strings.Replace(datatypePathTemplate, "{{DATATYPE}}", datatype, 1)
+}
+
+// ValidateAndUpload compares the current table schema against the
+// previous table schema for the given datatype and returns an error
+// if they are not compatibale.  If the new table schema is a superset
+// of the previous one, it will be uploaded to GCS.
+func ValidateAndUpload(bucket, experiment, datatype, dtSchemaFile string) error {
+	diff, err := checkTable(bucket, experiment, datatype, dtSchemaFile)
+	if err != nil {
+		if !errors.Is(err, storage.ErrObjectNotExist) {
+			return fmt.Errorf("%v: %w", ErrCompare, err)
+		}
+		// Scenario 1: old doesn't exist, should upload new.
+		verbose("no old table schema")
+		return uploadTableSchema(bucket, experiment, datatype, dtSchemaFile)
+	}
+	if diff.nInOld != 0 {
+		// Scenario 4 - new incompatible with old due to missing fields, should not upload.
+		return fmt.Errorf("incompatible schema: %2d %w", diff.nInOld, ErrOnlyInOld)
+	}
+	if diff.nType != 0 {
+		// Scenario 4 - new incompatible with old due to field type mismatch, should not upload.
+		return fmt.Errorf("incompatible schema: %2d %w", diff.nType, ErrTypeMismatch)
+	}
+	if diff.nInNew != 0 {
+		// Scenario 3 - new is a superset of old, should upload.
+		verbose("%2d field(s) only in new schema", diff.nInNew)
+		return uploadTableSchema(bucket, experiment, datatype, dtSchemaFile)
+	}
+	// Scenario 2 - old exists and matches new, should not upload.
+	return nil
+}
+
+// uploadTableSchema creates a table schema for the given datatype schema
+// and uploads it to GCS.
+func uploadTableSchema(bucket, experiment, datatype, dtSchemaFile string) error {
+	ctx := context.Background()
+	prefix := strings.Replace(objectPrefixTemplate, "{{EXPERIMENT}}", experiment, 1)
+	objPath := fmt.Sprintf("%s/%s-schema.json", prefix, datatype)
+	tblSchemaJSON, err := CreateTableSchemaJSON(datatype, dtSchemaFile)
+	if err != nil {
+		return err
+	}
+	if err := GCSUpload(ctx, bucket, objPath, tblSchemaJSON); err != nil {
+		return fmt.Errorf("%v: %w", ErrUpload, err)
+	}
+	return nil
+}
+
+// CreateTableSchemaJSON creates new table schemas for the given datatype.
+func CreateTableSchemaJSON(datatype, dtSchemaFile string) ([]byte, error) {
+	tblSchema, err := createTable(datatype, dtSchemaFile)
+	if err != nil {
+		return nil, err
+	}
+	tblSchemaJSON, err := tblSchema.ToJSONFields()
+	if err != nil {
+		return nil, fmt.Errorf("%v: %w", ErrMarshal, err)
+	}
+	return tblSchemaJSON, nil
+}
+
+// checkTable builds a new table schema for the given datatype,
+// compares it against the old table schema (if it exists), and returns
+// their differences.
+func checkTable(bucket, experiment, datatype, dtSchemaFile string) (*mapDiff, error) {
+	// Fetch the old table schema if it exists.  If it doesn't exist,
+	// there is nothing to validate for this datatype and the new table
+	// schema should be uploaded.
+	ctx := context.Background()
+	prefix := strings.Replace(objectPrefixTemplate, "{{EXPERIMENT}}", experiment, 1)
+	objPath := fmt.Sprintf("%s/%s-schema.json", prefix, datatype)
+	verbose("downloading '%v:%v'", bucket, objPath)
+	oldTblSchemaJSON, err := GCSDownload(ctx, bucket, objPath)
+	if err != nil {
+		return nil, fmt.Errorf("%v: %w", ErrDownload, err)
+	}
+	verbose("successfully downloaded '%v:%v'", bucket, objPath)
+	// We need a better way of handling the following changes.
+	s := string(oldTblSchemaJSON)
+	s = strings.ReplaceAll(s, `"name":`, `"Name":`)
+	s = strings.ReplaceAll(s, `"type":`, `"Type":`)
+	oldTblSchemaJSON = []byte(s)
+
+	// Old table schema exists.
+	oldFieldsMap, err := allFields(oldTblSchemaJSON)
+	if err != nil {
+		return nil, err
+	}
+	// This is practically not possible and panic should be removed
+	// once debugging is done.
+	if len(oldFieldsMap) == 0 {
+		panic("empty old schema field")
+	}
+
+	// Create the new table schema and marshal it to a JSON object
+	// to compare with the old one.
+	newTblSchema, err := createTable(datatype, dtSchemaFile)
+	if err != nil {
+		return nil, err
+	}
+	newTblSchemaJSON, err := json.Marshal(newTblSchema)
+	if err != nil {
+		return nil, fmt.Errorf("%v: %w", ErrMarshal, err)
+	}
+	newFieldsMap, err := allFields(newTblSchemaJSON)
+	if err != nil {
+		return nil, err
+	}
+
+	// Compare the old field with the new field.  Deleting old fields
+	// or changing their types is a breaking change.
+	return compareMaps(oldFieldsMap, newFieldsMap), nil
+}
+
+// createTable creates a new table schema with the standard columns for
+// the given datatype and returns it.
+func createTable(datatype, dtSchemaFile string) (bigquery.Schema, error) {
+	dtSchema, err := fromJSON(dtSchemaFile)
+	if err != nil {
+		return nil, err
+	}
+	stdColsSchema, err := bigquery.InferSchema(api.StandardColumnsV0{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to infer schema for %v: %w", datatype, err)
+	}
+	return replaceField("raw", stdColsSchema, dtSchema), nil
+}
+
+// allFields returns a map of all fields in the given schema.  The key
+// of each map entry is the full field name and its value is the field
+// type (e.g., ["archiver.Version"]: "STRING").
+func allFields(schemaJSON []byte) (map[string]string, error) {
+	var schema []interface{}
+	if err := json.Unmarshal(schemaJSON, &schema); err != nil {
+		return nil, fmt.Errorf("%v: %w", ErrUnmarshal, err)
+	}
+	fields := make(map[string]string)
+	err := visitAllFields(schema, func(fullFieldName []string, field bqField) error {
+		if key := strings.Join(fullFieldName, "."); key != "" {
+			fields[key] = fmt.Sprintf("%v", field["Type"])
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return fields, nil
+}
+
+// visitAllFields calls the given visit function for each field in the
+// given schema.
+func visitAllFields(schema []interface{}, visit visitFunc) error {
+	return visitAllFieldsRecursive(schema, visit, []string{})
+}
+
+// visitAllFieldsRecursive visits all fields in the given schema, calling
+// itself recursively for RECORD field types.
+func visitAllFieldsRecursive(schema []interface{}, visit visitFunc, fullFieldName []string) error {
+	for _, field := range schema {
+		var f bqField
+		f, ok := field.(map[string]interface{})
+		if !ok {
+			return fmt.Errorf("%T: %w", field, ErrType)
+		}
+		ffn := fullFieldName
+		ffn = append(ffn, fmt.Sprintf("%v", f["Name"]))
+		if err := visit(ffn, f); err != nil {
+			return err
+		}
+		if f["Type"] != "RECORD" {
+			continue
+		}
+		record, ok := f["Schema"].([]interface{})
+		if !ok {
+			record, ok = f["fields"].([]interface{})
+			if !ok {
+				return fmt.Errorf("%T: %w", f["fields"], ErrType)
+			}
+		}
+		if err := visitAllFieldsRecursive(record, visit, ffn); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// fromJSON returns a BigQuery schema from the specified file which is
+// expected to be in JSON format.
+func fromJSON(dtSchemaFile string) (bigquery.Schema, error) {
+	contents, err := os.ReadFile(dtSchemaFile)
+	if err != nil {
+		return nil, fmt.Errorf("%v: %w", ErrReadSchema, err)
+	}
+	schema, err := bigquery.SchemaFromJSON(contents)
+	if err != nil {
+		return nil, fmt.Errorf("%v: %w", ErrSchemaFromJSON, err)
+	}
+	return schema, nil
+}
+
+// replaceField replaces the specified field in the original schema
+// by the replacing schema.
+func replaceField(fieldName string, origSchema, replacingSchema bigquery.Schema) bigquery.Schema {
+	schema := bigquery.Schema{}
+	for _, fieldSchema := range origSchema {
+		if fieldSchema.Name == fieldName {
+			rawFieldSchema := &bigquery.FieldSchema{
+				Name:     "raw",
+				Required: false,
+				Type:     bigquery.RecordFieldType,
+				Schema:   replacingSchema,
+			}
+			schema = append(schema, rawFieldSchema)
+		} else {
+			schema = append(schema, fieldSchema)
+		}
+	}
+	return schema
+}
+
+// compareMaps compares the given maps and returns their differences
+// as three integers that are the number of (1) keys only in the new map,
+// (2) keys only in the old map, and (3) different values.  It also logs
+// the comparison results in verbose mode.
+func compareMaps(oldMap, newMap map[string]string) *mapDiff {
+	diff := &mapDiff{}
+	newKeys := sortMapKeys(newMap)
+	for _, n := range newKeys {
+		if _, ok := oldMap[n]; !ok {
+			verbose("%-10s %v:%v", "only in new:", n, newMap[n])
+			diff.nInNew++
+			continue
+		}
+		// The key exists in both schemas; compare their values.
+		if newMap[n] != oldMap[n] {
+			verbose("%-10v %v:%v in new, %v:%v in old", "mismatch:", n, newMap[n], n, oldMap[n])
+			diff.nType++
+			continue
+		}
+		verbose("%-10s %v:%v", "in both:", n, newMap[n])
+	}
+	oldKeys := sortMapKeys(oldMap)
+	for _, o := range oldKeys {
+		if _, ok := newMap[o]; !ok {
+			verbose("%-10s %v:%v", "only in old:", o, oldMap[o])
+			diff.nInOld++
+		}
+	}
+	return diff
+}
+
+// sortMapKeys returns a sorted slice of all keys in the given map.
+func sortMapKeys(fields map[string]string) []string {
+	keys := make([]string, 0, len(fields))
+	for key := range fields {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return keys
+}

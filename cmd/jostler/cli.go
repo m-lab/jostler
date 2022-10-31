@@ -2,14 +2,20 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
 	"github.com/m-lab/go/flagx"
 	"github.com/m-lab/go/host"
+	"github.com/m-lab/jostler/internal/gcs"
+	"github.com/m-lab/jostler/internal/schema"
+	"github.com/m-lab/jostler/internal/uploadbundle"
+	"github.com/m-lab/jostler/internal/watchdir"
 )
 
 var (
@@ -46,6 +52,8 @@ var (
 	errSchemaNums     = errors.New("more schema files than datatypes")
 	errSchemaNoMatch  = errors.New("does not match any specified datatypes")
 	errSchemaFilename = errors.New("is not in <datatype>:<pathname> format")
+	errReadFile       = errors.New("failed to read file")
+	errUnmarshalFile  = errors.New("failed to unmarshal file")
 )
 
 func initFlags() {
@@ -97,6 +105,16 @@ func parseAndValidateCLI() error {
 	if err := flagx.ArgsFromEnv(flag.CommandLine); err != nil {
 		return fmt.Errorf("failed to get args from the environment: %w", err)
 	}
+
+	// Enable verbose mode in all packages as soon as the flags are
+	// parsed because they may be called for during argument validation.
+	if verbose {
+		gcs.Verbose(vLogf)
+		schema.Verbose(vLogf)
+		watchdir.Verbose(vLogf)
+		uploadbundle.Verbose(vLogf)
+	}
+
 	if extensions == nil {
 		extensions = []string{".json"}
 	}
@@ -154,13 +172,24 @@ func validateSchemaFlags() error {
 	return nil
 }
 
-// validateSchemaFiles() validates the schema files of all datatypes
-// regardless of whether their paths were explicitly specified on the
-// command line or not (i.e., assumed to be in their default locations).
+// validateSchemaFiles validates all datatype schema files exist and
+// are well-formed JSON.
+//
+// The schema package is configured with the default path of datatype
+// schema files but datatype schema files can also be explicitly specified
+// via the -schema-file flag.
 func validateSchemaFiles() error {
 	for _, datatype := range datatypes {
-		if err := schemaForDatatype(datatype); err != nil {
-			return err
+		dtSchemaFile := schema.PathForDatatype(datatype, schemaFiles)
+		// Does it exist?
+		contents, err := os.ReadFile(dtSchemaFile)
+		if err != nil {
+			return fmt.Errorf("%v: %w", errReadFile, err)
+		}
+		// Is it well-formed JSON?
+		var data []interface{}
+		if err = json.Unmarshal(contents, &data); err != nil {
+			return fmt.Errorf("%v: %v: %w", dtSchemaFile, errUnmarshalFile, err)
 		}
 	}
 	return nil
