@@ -2,12 +2,12 @@
 //
 // jostler supports two modes of operation:
 //
-//   - A short-lived interactive mode (enabled by the -local flag) on a
-//     user's workstation to create table schema files in JSON format
-//     and save them in the current directory so the use can examine them
-//     (mostly for troubleshooting purposes).
-//   - A long-lived non-interactive mode on M-Lab nodes to bundle and
-//     upload measurement data to GCS.
+//   - A short-lived interactive "local" mode meant to run on a user's
+//     workstation to create table schema files in JSON format and
+//     save them in the current directory so the user can easily examine
+//     them (mostly for troubleshooting purposes).
+//   - A long-lived non-interactive "daemon" mode meant to run on M-Lab
+//     nodes to bundle and upload measurement data to GCS.
 //
 // When running in the non-interactive mode, jostler checks if the current
 // table schema for each datatype ("new") is backward compatible with the
@@ -45,7 +45,7 @@ import (
 	"github.com/m-lab/go/host"
 	"github.com/rjeczalik/notify"
 
-	"github.com/m-lab/jostler/internal/gcs"
+	"github.com/m-lab/jostler/internal/schema"
 	"github.com/m-lab/jostler/internal/uploadbundle"
 	"github.com/m-lab/jostler/internal/watchdir"
 )
@@ -66,41 +66,30 @@ func main() {
 	if err := parseAndValidateCLI(); err != nil {
 		fatal(err)
 	}
-	// In verbose mode, enable verbose logging by all packages
-	// (mostly for debugging).
-	if verbose {
-		gcs.Verbose(vLogf)
-		watchdir.Verbose(vLogf)
-		uploadbundle.Verbose(vLogf)
-	}
 
 	if local {
-		// Short-lived interactive mode.
-		if err := saveTableSchemasLocal(); err != nil {
+		if err := localMode(); err != nil {
 			fatal(err)
 		}
 	} else {
-		// Long-lived non-interactive mode.
-		if err := uploadTableSchemas(bucket, experiment, datatypes); err != nil {
-			fatal(err)
-		}
-		if err := watchAndUpload(); err != nil {
+		if err := daemonMode(); err != nil {
 			fatal(err)
 		}
 	}
 }
 
-// saveTableSchemasLocal creates table schemas for each datatype and
-// saves them as <datatype>-schema.json files in the current directory so
-// they can be easily viewed by the user.
-func saveTableSchemasLocal() error {
+// localMode creates table schemas with standard columns for each datatype
+// and saves them as <datatype>-schema.json files in the current directory
+// so they can be easily examined by the user.
+func localMode() error {
 	for _, datatype := range datatypes {
-		schemaJSON, err := createNewTableSchemaJSON(datatype)
+		dtSchemaFile := schema.PathForDatatype(datatype, schemaFiles)
+		tblSchemaJSON, err := schema.CreateTableSchemaJSON(datatype, dtSchemaFile)
 		if err != nil {
-			return err
+			return fmt.Errorf("%v: %w", datatype, err)
 		}
 		schemaFile := datatype + "-schema.json"
-		if err = os.WriteFile(schemaFile, schemaJSON, 0o666); err != nil {
+		if err = os.WriteFile(schemaFile, tblSchemaJSON, 0o666); err != nil {
 			return fmt.Errorf("%v: %w", errWrite, err)
 		}
 		log.Printf("saved %v\n", schemaFile)
@@ -108,9 +97,19 @@ func saveTableSchemasLocal() error {
 	return nil
 }
 
-// watchAndUpload bundles individual JSON files into JSONL bundles and
-// uploads the bundles to GCS.
-func watchAndUpload() error {
+// deamonMode runs in the long-lived non-interactive mode to bundle
+// individual measurement data files in JSON format into JSONL bundles and
+// upload to GCS.
+func daemonMode() error {
+	// Validate table schemas are backward compatible and upload the
+	// ones are a superset of the previous table.
+	for _, datatype := range datatypes {
+		dtSchemaFile := schema.PathForDatatype(datatype, schemaFiles)
+		if err := schema.ValidateAndUpload(bucket, experiment, datatype, dtSchemaFile); err != nil {
+			return fmt.Errorf("%v: %w", datatype, err)
+		}
+	}
+
 	watchEvents := []notify.Event{notify.InCloseWrite, notify.InMovedTo}
 	mainCtx, mainCancel := context.WithCancel(context.Background())
 	defer mainCancel()
@@ -198,16 +197,17 @@ func startUploader(mainCtx context.Context, mainCancel context.CancelFunc, wg *s
 	return ubClient, nil
 }
 
-// vLogf logs the given message if verbose mode is enabled.  Because the
-// verbose mode is used mostly for debugging, messages are prefixed by
-// "filename:line-number function()" printed in green and the message
-// printed in blue for easier visual inspection.
+const (
+	ansiGreen  = "\033[00;32m"
+	ansiBlue   = "\033[00;34m"
+	ansiPurple = "\033[00;35m"
+	ansiEnd    = "\033[0m"
+)
+
+// vLogf logs messages in verbose mode (mostly for debugging).  Messages
+// are prefixed by "filename:line-number function()" printed in green and
+// the message printed in blue for easier visual inspection.
 func vLogf(format string, args ...interface{}) {
-	ansicode := map[string]string{
-		"green": "\033[00;32m",
-		"blue":  "\033[00;34m",
-		"end":   "\033[0m",
-	}
 	if !verbose {
 		return
 	}
@@ -221,14 +221,14 @@ func vLogf(format string, args ...interface{}) {
 		log.Printf(format, args...)
 		return
 	}
-	idx := strings.LastIndex(details.Name(), ".")
+	file = filepath.Base(file)
+	idx := strings.LastIndex(details.Name(), "/")
 	if idx == -1 {
 		idx = 0
 	} else {
 		idx++
 	}
-	file = filepath.Base(file)
-	a := []interface{}{ansicode["green"], file, line, details.Name()[idx:], ansicode["blue"]}
+	a := []interface{}{ansiGreen, file, line, details.Name()[idx:], ansiBlue}
 	a = append(a, args...)
-	log.Printf("%s%s:%d: %s(): %s"+format+"%s", append(a, ansicode["end"])...)
+	log.Printf("%s%s:%d: %s(): %s"+format+"%s", append(a, ansiEnd)...)
 }
