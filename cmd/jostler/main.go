@@ -101,7 +101,7 @@ func localMode() error {
 // individual measurement data files in JSON format into JSONL bundles and
 // upload to GCS.
 func daemonMode() error {
-	// Validate table schemas are backward compatibale and upload the
+	// Validate table schemas are backward compatible and upload the
 	// ones are a superset of the previous table.
 	for _, datatype := range datatypes {
 		dtSchemaFile := schema.PathForDatatype(datatype, schemaFiles)
