@@ -27,8 +27,8 @@ type (
 )
 
 var (
-	datatypePathTemplate = "/var/spool/datatypes/{{DATATYPE}}/schema.json"
-	objectPrefixTemplate = "autoload/v0/datatypes/{{EXPERIMENT}}"
+	datatypePathTemplate = "/var/spool/datatypes/{{DATATYPE}}.json"
+	objectPrefixTemplate = "autoload/v0/tables/{{EXPERIMENT}}/{{DATATYPE}}-table.json"
 
 	ErrReadSchema     = errors.New("failed to read schema file")
 	ErrSchemaFromJSON = errors.New("failed to create schema from JSON")
@@ -55,10 +55,10 @@ func Verbose(v func(string, ...interface{})) {
 // PathForDatatype returns the path of the schema file for the given
 // datatype.  If the path was explicitly specified on the command line,
 // it is used.  Otherwise the default location is assumed.
-func PathForDatatype(datatype string, schemaFiles []string) string {
-	for i := range schemaFiles {
-		if strings.HasPrefix(schemaFiles[i], datatype+":") {
-			return (schemaFiles[i])[len(datatype)+1:]
+func PathForDatatype(datatype string, dtSchemaFiles []string) string {
+	for i := range dtSchemaFiles {
+		if strings.HasPrefix(dtSchemaFiles[i], datatype+":") {
+			return (dtSchemaFiles[i])[len(datatype)+1:]
 		}
 	}
 	return strings.Replace(datatypePathTemplate, "{{DATATYPE}}", datatype, 1)
@@ -99,12 +99,13 @@ func ValidateAndUpload(bucket, experiment, datatype, dtSchemaFile string) error 
 // and uploads it to GCS.
 func uploadTableSchema(bucket, experiment, datatype, dtSchemaFile string) error {
 	ctx := context.Background()
-	prefix := strings.Replace(objectPrefixTemplate, "{{EXPERIMENT}}", experiment, 1)
-	objPath := fmt.Sprintf("%s/%s-schema.json", prefix, datatype)
 	tblSchemaJSON, err := CreateTableSchemaJSON(datatype, dtSchemaFile)
 	if err != nil {
 		return err
 	}
+	objPath := strings.Replace(objectPrefixTemplate, "{{EXPERIMENT}}", experiment, 1)
+	objPath = strings.Replace(objPath, "{{DATATYPE}}", datatype, 1)
+	verbose("uploading '%v:%v'", bucket, objPath)
 	if err := GCSUpload(ctx, bucket, objPath, tblSchemaJSON); err != nil {
 		return fmt.Errorf("%v: %w", ErrUpload, err)
 	}
@@ -132,8 +133,8 @@ func checkTable(bucket, experiment, datatype, dtSchemaFile string) (*mapDiff, er
 	// there is nothing to validate for this datatype and the new table
 	// schema should be uploaded.
 	ctx := context.Background()
-	prefix := strings.Replace(objectPrefixTemplate, "{{EXPERIMENT}}", experiment, 1)
-	objPath := fmt.Sprintf("%s/%s-schema.json", prefix, datatype)
+	objPath := strings.Replace(objectPrefixTemplate, "{{EXPERIMENT}}", experiment, 1)
+	objPath = strings.Replace(objPath, "{{DATATYPE}}", datatype, 1)
 	verbose("downloading '%v:%v'", bucket, objPath)
 	oldTblSchemaJSON, err := GCSDownload(ctx, bucket, objPath)
 	if err != nil {

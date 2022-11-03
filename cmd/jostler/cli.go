@@ -25,7 +25,7 @@ var (
 	mlabNodeName string
 
 	// Flags related to bundles.
-	schemaFiles   flagx.StringArray
+	dtSchemaFiles flagx.StringArray
 	bundleSizeMax uint
 	bundleAgeMax  time.Duration
 	bundleNoRm    bool
@@ -63,7 +63,7 @@ func initFlags() {
 	flag.StringVar(&mlabNodeName, "mlab-node-name", "", "required - node name specified directly or via MLAB_NODE_NAME env variable")
 
 	// Flags related to bundles.
-	schemaFiles = flagx.StringArray{}
+	dtSchemaFiles = flagx.StringArray{}
 	flag.UintVar(&bundleSizeMax, "bundle-size-max", 20*1024*1024, "maximum bundle size in bytes before it is uploaded")
 	flag.DurationVar(&bundleAgeMax, "bundle-age-max", 1*time.Hour, "maximum bundle age before it is uploaded")
 	flag.BoolVar(&bundleNoRm, "no-rm", false, "do not remove files of a bundle after successful upload") // XXX debugging support - delete when done
@@ -81,7 +81,7 @@ func initFlags() {
 	flag.BoolVar(&verbose, "verbose", false, "enable verbose mode")
 	flag.DurationVar(&testInterval, "test-interval", 0, "time interval to stop running (for test purposes only)")
 
-	flag.Var(&schemaFiles, "schema-file", "schema for each datatype in the format <datatype>:<pathname>")
+	flag.Var(&dtSchemaFiles, "dt-schema-file", "schema for each datatype in the format <datatype>:<pathname>")
 	flag.Var(&extensions, "extensions", "filename extensions to watch within <data-dir>/<experiment>")
 	flag.Var(&datatypes, "datatype", "required - datatype(s) to watch within <data-dir>/<experiment>")
 }
@@ -150,10 +150,10 @@ func parseAndValidateCLI() error {
 // validateSchemaFlags validate that for each schema file, its corresponding
 // datatype has been specified.
 func validateSchemaFlags() error {
-	if len(schemaFiles) > len(datatypes) {
+	if len(dtSchemaFiles) > len(datatypes) {
 		return errSchemaNums
 	}
-	for _, schemaFile := range schemaFiles {
+	for _, schemaFile := range dtSchemaFiles {
 		idx := strings.Index(schemaFile, ":")
 		if idx == -1 {
 			return fmt.Errorf("%v: %w", schemaFile, errSchemaFilename)
@@ -177,10 +177,10 @@ func validateSchemaFlags() error {
 //
 // The schema package is configured with the default path of datatype
 // schema files but datatype schema files can also be explicitly specified
-// via the -schema-file flag.
+// via the -dt-schema-file flag.
 func validateSchemaFiles() error {
 	for _, datatype := range datatypes {
-		dtSchemaFile := schema.PathForDatatype(datatype, schemaFiles)
+		dtSchemaFile := schema.PathForDatatype(datatype, dtSchemaFiles)
 		// Does it exist?
 		contents, err := os.ReadFile(dtSchemaFile)
 		if err != nil {

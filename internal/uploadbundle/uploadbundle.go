@@ -43,7 +43,7 @@ type UploadBundle struct {
 // "foo1-mlab3-akl01-ndt".
 type GCSConfig struct {
 	Bucket  string // GCS bucket name
-	DataDir string // "path" to datatype subdirectory in GCS (e.g., /autoload-v0/<experiment>/<datatype>)
+	DataDir string // "path" to datatype subdirectory in GCS (e.g., /autoload/v0/tables/<experiment>/<datatype>-table.json)
 	BaseID  string // ID component in the filename of JSONL bundle (e.g., <datatype>-<machine>-<site>-<experiment>)
 }
 
@@ -78,9 +78,10 @@ func New(wdClient *watchdir.WatchDir, gcsConf GCSConfig, bundleConf BundleConfig
 }
 
 // BundleAndUpload is a stub function.
-func (ub *UploadBundle) BundleAndUpload(ctx context.Context) {
+func (ub *UploadBundle) BundleAndUpload(ctx context.Context) error {
 	<-ctx.Done()
 	verbose("bundle and upload context canceled")
+	return nil
 }
 
 // UploadActiveBundles uploads all active bundles regardless of their

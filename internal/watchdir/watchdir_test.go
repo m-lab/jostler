@@ -88,6 +88,10 @@ func TestNew(t *testing.T) { //nolint:paralleltest
 }
 
 func TestWatchAndNotify(t *testing.T) { //nolint:paralleltest,funlen
+	defer func() {
+		os.RemoveAll("testdata/j.json")
+		os.RemoveAll("testdata/t.txt")
+	}()
 	tests := []struct {
 		name            string
 		eventNames      map[notify.Event]string
@@ -173,7 +177,9 @@ func TestWatchAndNotify(t *testing.T) { //nolint:paralleltest,funlen
 			missedInterval:  1 * time.Second,
 		},
 	}
-	Verbose(fakeVerbosef) // enable verbose mode
+	if testing.Verbose() {
+		Verbose(fakeVerbosef)
+	}
 	defer Verbose(nil)
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -194,7 +200,9 @@ func TestWatchAndNotify(t *testing.T) { //nolint:paralleltest,funlen
 			eventNames = test.eventNames
 		}
 		ctx, cancel := context.WithCancel(context.Background())
-		go wd.WatchAndNotify(ctx)
+		go func() {
+			_ = wd.WatchAndNotify(ctx)
+		}()
 		// Give WatchAndNotify() goroutine time to start.
 		<-time.After(200 * time.Millisecond)
 		fileActivity(t, wd, testFile, test.ack)

@@ -17,7 +17,7 @@ import (
 
 const (
 	testBucket = "fake-bucket"
-	testObject = "autoload/v0/datatypes/jostler/foo1-schema.json"
+	testObject = "autoload/v0/tables/jostler/foo1.json"
 
 	ansiGreen  = "\033[00;32m"
 	ansiBlue   = "\033[00;34m"
@@ -41,24 +41,24 @@ func TestPathForDatatype(t *testing.T) { //nolint:paralleltest
 	GCSUpload = panicGcsUpload
 
 	tests := []struct {
-		datatype    string
-		schemaFiles []string
-		want        string
+		datatype      string
+		dtSchemaFiles []string
+		want          string
 	}{
 		{
-			datatype:    "foo1",
-			schemaFiles: []string{"foo1:/path/to/foo1.json", "bar1:/path/to/bar1.json"},
-			want:        "/path/to/foo1.json",
+			datatype:      "foo1",
+			dtSchemaFiles: []string{"foo1:/path/to/foo1.json", "bar1:/path/to/bar1.json"},
+			want:          "/path/to/foo1.json",
 		},
 		{
-			datatype:    "baz1",
-			schemaFiles: []string{"foo1:/path/to/foo1.json", "bar1:/path/to/bar1.json"},
-			want:        "/var/spool/datatypes/baz1/schema.json",
+			datatype:      "baz1",
+			dtSchemaFiles: []string{"foo1:/path/to/foo1.json", "bar1:/path/to/bar1.json"},
+			want:          "/var/spool/datatypes/baz1.json",
 		},
 	}
 	for i, test := range tests {
 		t.Logf("%s>>> test %02d%s", ansiPurple, i, ansiEnd)
-		dtSchemaFile := PathForDatatype(test.datatype, test.schemaFiles)
+		dtSchemaFile := PathForDatatype(test.datatype, test.dtSchemaFiles)
 		if dtSchemaFile != test.want {
 			t.Fatalf("PathForDatatype() = %v, want: %v", dtSchemaFile, test.want)
 		}
@@ -66,6 +66,9 @@ func TestPathForDatatype(t *testing.T) { //nolint:paralleltest
 }
 
 func TestValidateAndUpload(t *testing.T) { //nolint:paralleltest,funlen
+	defer func() {
+		os.RemoveAll("testdata/foo1-table.json")
+	}()
 	saveGCSDownload := GCSDownload
 	saveGCSUpload := GCSUpload
 	defer func() {
@@ -91,7 +94,7 @@ func TestValidateAndUpload(t *testing.T) { //nolint:paralleltest,funlen
 			object:          testObject,
 			experiment:      "jostler",
 			datatype:        "foo1",
-			dtSchemaFile:    "testdata/foo1:non-existent-schema.json",
+			dtSchemaFile:    "testdata/foo1:non-existent.json",
 			download:        fakeGcsDownload,
 			upload:          panicGcsUpload,
 			wantErr:         ErrReadSchema,
@@ -103,7 +106,7 @@ func TestValidateAndUpload(t *testing.T) { //nolint:paralleltest,funlen
 			object:          testObject,
 			experiment:      "jostler",
 			datatype:        "foo1",
-			dtSchemaFile:    "testdata/foo1-valid-schema.json",
+			dtSchemaFile:    "testdata/foo1-valid.json",
 			download:        fakeGcsDownload,
 			upload:          fakeGcsUpload,
 			wantErr:         nil,
@@ -115,7 +118,7 @@ func TestValidateAndUpload(t *testing.T) { //nolint:paralleltest,funlen
 			object:          testObject,
 			experiment:      "jostler",
 			datatype:        "foo1",
-			dtSchemaFile:    "testdata/foo1-valid-schema.json",
+			dtSchemaFile:    "testdata/foo1-valid.json",
 			download:        fakeGcsDownload,
 			upload:          panicGcsUpload,
 			wantErr:         nil,
@@ -127,7 +130,7 @@ func TestValidateAndUpload(t *testing.T) { //nolint:paralleltest,funlen
 			object:          testObject,
 			experiment:      "jostler",
 			datatype:        "foo1",
-			dtSchemaFile:    "testdata/foo1-valid-superset-schema.json",
+			dtSchemaFile:    "testdata/foo1-valid-superset.json",
 			download:        fakeGcsDownload,
 			upload:          fakeGcsUpload,
 			wantErr:         nil,
@@ -139,7 +142,7 @@ func TestValidateAndUpload(t *testing.T) { //nolint:paralleltest,funlen
 			object:          testObject,
 			experiment:      "jostler",
 			datatype:        "foo1",
-			dtSchemaFile:    "testdata/foo1-valid-schema.json",
+			dtSchemaFile:    "testdata/foo1-valid.json",
 			download:        fakeGcsDownload,
 			upload:          panicGcsUpload,
 			wantErr:         ErrOnlyInOld,
@@ -151,7 +154,7 @@ func TestValidateAndUpload(t *testing.T) { //nolint:paralleltest,funlen
 			object:          testObject,
 			experiment:      "jostler",
 			datatype:        "foo1",
-			dtSchemaFile:    "testdata/foo1-incompatible-schema.json",
+			dtSchemaFile:    "testdata/foo1-incompatible.json",
 			download:        fakeGcsDownload,
 			upload:          panicGcsUpload,
 			wantErr:         ErrTypeMismatch,
@@ -163,7 +166,7 @@ func TestValidateAndUpload(t *testing.T) { //nolint:paralleltest,funlen
 			object:          testObject,
 			experiment:      "jostler",
 			datatype:        "bar1",
-			dtSchemaFile:    "testdata/foo1-valid-schema.json",
+			dtSchemaFile:    "testdata/foo1-valid.json",
 			download:        fakeGcsDownload,
 			upload:          fakeGcsUpload,
 			wantErr:         ErrUpload,
@@ -172,7 +175,7 @@ func TestValidateAndUpload(t *testing.T) { //nolint:paralleltest,funlen
 
 	for i, test := range tests {
 		if test.rmTblSchemaFile {
-			os.RemoveAll(fmt.Sprintf("testdata/%s-schema.json", test.datatype))
+			os.RemoveAll(fmt.Sprintf("testdata/%s-table.json", test.datatype))
 		}
 		GCSDownload = test.download
 		GCSUpload = test.upload

@@ -68,6 +68,7 @@ var (
 	}
 
 	errUnrecognizedEvent = errors.New("unrecognized event")
+	errNotifyWatch       = errors.New("failed to start notify.Watch")
 
 	watchChanSize     = 10000
 	notifiedFilesSize = 10000
@@ -130,13 +131,13 @@ func (wd *WatchDir) WatchAckChan() chan<- []string {
 // WatchAndNotify watches a directory (and possiblty all its subdirectories)
 // for the configured events and sends the pathnames of the events it received
 // through the configured channel.
-func (wd *WatchDir) WatchAndNotify(ctx context.Context) {
+func (wd *WatchDir) WatchAndNotify(ctx context.Context) error {
 	go wd.findMissedAndNotify(ctx)
 
 	verbose("watching directory %v and notifying", wd.watchDir)
 	eiChan := make(chan notify.EventInfo, notifyChanSize)
 	if err := notify.Watch(wd.watchDir+"/...", eiChan, wd.watchEvents...); err != nil {
-		log.Panic(err)
+		return fmt.Errorf("%v: %w", errNotifyWatch, err)
 	}
 	defer notify.Stop(eiChan)
 	done := false
@@ -170,6 +171,7 @@ func (wd *WatchDir) WatchAndNotify(ctx context.Context) {
 			wd.ackNotifications(fullPaths)
 		}
 	}
+	return nil
 }
 
 // ackNotifications gets a list of files that the client acknowledges

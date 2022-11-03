@@ -28,6 +28,16 @@
 //  2. Doesn't upload.
 //  3. Uploads new to GCS.
 //  4. Fails to run.
+//
+// In summary, by default:
+//  1. Datatype schema files will be read from:
+//     /var/spool/datatypes/<datatype>.json
+//  2. Table schema files will be uploaded as:
+//     autoload/v0/tables/<experiment>/<datatype>-table.json
+//  3. Compressed bundle files will be uploaded as:
+//     autoload/v0/<experiment>/<datatype>/<yyyy>/<mm>/<dd>/<timestamp>-<datatype>-<node-name>-<experiment>.jsonl.gz
+//  4. Compressed bundles index files will be uploaded as:
+//     autoload/v0/<experiment>/<datatype>/<yyyy>/<mm>/<dd>/<timestamp>-<datatype>-<node-name>-<experiment>.index.gz
 package main
 
 import (
@@ -39,7 +49,6 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/m-lab/go/host"
@@ -79,16 +88,16 @@ func main() {
 }
 
 // localMode creates table schemas with standard columns for each datatype
-// and saves them as <datatype>-schema.json files in the current directory
+// and saves them as <datatype>.json files in the current directory
 // so they can be easily examined by the user.
 func localMode() error {
 	for _, datatype := range datatypes {
-		dtSchemaFile := schema.PathForDatatype(datatype, schemaFiles)
+		dtSchemaFile := schema.PathForDatatype(datatype, dtSchemaFiles)
 		tblSchemaJSON, err := schema.CreateTableSchemaJSON(datatype, dtSchemaFile)
 		if err != nil {
 			return fmt.Errorf("%v: %w", datatype, err)
 		}
-		schemaFile := datatype + "-schema.json"
+		schemaFile := datatype + ".json"
 		if err = os.WriteFile(schemaFile, tblSchemaJSON, 0o666); err != nil {
 			return fmt.Errorf("%v: %w", errWrite, err)
 		}
@@ -104,7 +113,7 @@ func daemonMode() error {
 	// Validate table schemas are backward compatible and upload the
 	// ones are a superset of the previous table.
 	for _, datatype := range datatypes {
-		dtSchemaFile := schema.PathForDatatype(datatype, schemaFiles)
+		dtSchemaFile := schema.PathForDatatype(datatype, dtSchemaFiles)
 		if err := schema.ValidateAndUpload(bucket, experiment, datatype, dtSchemaFile); err != nil {
 			return fmt.Errorf("%v: %w", datatype, err)
 		}
@@ -112,16 +121,17 @@ func daemonMode() error {
 
 	watchEvents := []notify.Event{notify.InCloseWrite, notify.InMovedTo}
 	mainCtx, mainCancel := context.WithCancel(context.Background())
-	defer mainCancel()
-	wg := sync.WaitGroup{}
+	// defer mainCancel()
 	// For each datatype, start a directory watcher and a bundle
 	// uploader.
+	watcherStatus := make(chan error)
+	uploaderStatus := make(chan error)
 	for _, datatype := range datatypes {
-		wdClient, err := startWatcher(mainCtx, mainCancel, &wg, datatype, watchEvents)
+		wdClient, err := startWatcher(mainCtx, mainCancel, watcherStatus, datatype, watchEvents)
 		if err != nil {
 			return err
 		}
-		if _, err = startUploader(mainCtx, mainCancel, &wg, datatype, wdClient); err != nil {
+		if _, err = startUploader(mainCtx, mainCancel, uploaderStatus, datatype, wdClient); err != nil {
 			return err
 		}
 	}
@@ -138,32 +148,41 @@ func daemonMode() error {
 	// to close or if the main context is explicitly canceled, the
 	// goroutines created in startWatcher() and startBundleUploader()
 	// will terminate and the following Wait() returns.
-	wg.Wait()
-	return nil
+	var err error
+	select {
+	case err = <-watcherStatus:
+		if err != nil {
+			log.Printf("watcher failed: %v\n", err)
+		}
+	case err = <-uploaderStatus:
+		if err != nil {
+			log.Printf("uploader failed: %v\n", err)
+		}
+	}
+	mainCancel()
+	return err
 }
 
 // startWatcher starts a directory watcher goroutine that watches the
 // specified directory and notifies its client of new (and potentially
 // missed) files.
-func startWatcher(mainCtx context.Context, mainCancel context.CancelFunc, wg *sync.WaitGroup, datatype string, watchEvents []notify.Event) (*watchdir.WatchDir, error) {
+func startWatcher(mainCtx context.Context, mainCancel context.CancelFunc, status chan<- error, datatype string, watchEvents []notify.Event) (*watchdir.WatchDir, error) {
 	watchDir := filepath.Join(dataHomeDir, experiment, datatype)
 	wdClient, err := watchdir.New(watchDir, extensions, watchEvents, missedAge, missedInterval)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate watcher: %w", err)
 	}
 
-	wg.Add(1)
-	go func(wdClient *watchdir.WatchDir) {
+	go func(wdClient *watchdir.WatchDir, status chan<- error) {
 		defer mainCancel()
-		wdClient.WatchAndNotify(mainCtx)
-		wg.Done()
-	}(wdClient)
+		status <- wdClient.WatchAndNotify(mainCtx)
+	}(wdClient, status)
 	return wdClient, nil
 }
 
 // startUploader start a bundle uploader goroutine that bundles
 // individual JSON files into JSONL bundle and uploads it to GCS.
-func startUploader(mainCtx context.Context, mainCancel context.CancelFunc, wg *sync.WaitGroup, datatype string, wdClient *watchdir.WatchDir) (*uploadbundle.UploadBundle, error) {
+func startUploader(mainCtx context.Context, mainCancel context.CancelFunc, status chan<- error, datatype string, wdClient *watchdir.WatchDir) (*uploadbundle.UploadBundle, error) {
 	nameParts, err := host.Parse(mlabNodeName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse hostname: %w", err)
@@ -186,14 +205,12 @@ func startUploader(mainCtx context.Context, mainCancel context.CancelFunc, wg *s
 		return nil, fmt.Errorf("failed to instantiate uploader: %w", err)
 	}
 
-	wg.Add(1)
-	go func(ubClient *uploadbundle.UploadBundle) {
+	go func(ubClient *uploadbundle.UploadBundle, status chan<- error) {
 		defer mainCancel()
 		// BundleAndUpload() runs forever unless somehow the
 		// context is canceled or the channels it uses are closed.
-		ubClient.BundleAndUpload(mainCtx)
-		wg.Done()
-	}(ubClient)
+		status <- ubClient.BundleAndUpload(mainCtx)
+	}(ubClient, status)
 	return ubClient, nil
 }
 
