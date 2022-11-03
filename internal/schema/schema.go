@@ -28,7 +28,7 @@ type (
 
 var (
 	datatypePathTemplate = "/var/spool/datatypes/{{DATATYPE}}.json"
-	objectPrefixTemplate = "autoload/v0/tables/{{EXPERIMENT}}/{{DATATYPE}}-table.json"
+	objectPrefixTemplate = "autoload/v0/tables/{{EXPERIMENT}}/{{DATATYPE}}.table.json"
 
 	ErrReadSchema     = errors.New("failed to read schema file")
 	ErrSchemaFromJSON = errors.New("failed to create schema from JSON")

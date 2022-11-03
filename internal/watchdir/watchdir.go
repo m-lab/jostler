@@ -22,7 +22,7 @@ type WatchEvent struct {
 	Missed bool   // true if file was missed
 }
 
-// WatchDir defines the directory (and possiblty all its subdirectories)
+// WatchDir defines the directory (and possibly all its subdirectories)
 // to watch.
 type WatchDir struct {
 	watchDir          string              // directory to watch
@@ -35,6 +35,14 @@ type WatchDir struct {
 	notifiedFiles     map[string]struct{} // files for which notification was sent
 	notifiedFilesLock sync.Mutex          // lock for notifiedFiles
 }
+
+const (
+	// The values of these constants should be big enough to allow
+	// for a flurry of file creations.
+	watchChanSize     = 10000
+	notifiedFilesSize = 10000
+	notifyChanSize    = 10000
+)
 
 var (
 	// AllWatchEvents is the list of all possible events to watch for.
@@ -69,10 +77,6 @@ var (
 
 	errUnrecognizedEvent = errors.New("unrecognized event")
 	errNotifyWatch       = errors.New("failed to start notify.Watch")
-
-	watchChanSize     = 10000
-	notifiedFilesSize = 10000
-	notifyChanSize    = 10000
 
 	verbose = func(fmt string, args ...interface{}) {}
 )
@@ -128,7 +132,7 @@ func (wd *WatchDir) WatchAckChan() chan<- []string {
 	return wd.watchAckChan
 }
 
-// WatchAndNotify watches a directory (and possiblty all its subdirectories)
+// WatchAndNotify watches a directory (and possibly all its subdirectories)
 // for the configured events and sends the pathnames of the events it received
 // through the configured channel.
 func (wd *WatchDir) WatchAndNotify(ctx context.Context) error {

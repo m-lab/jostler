@@ -30,14 +30,12 @@
 //  4. Fails to run.
 //
 // In summary, by default:
-//  1. Datatype schema files will be read from:
+//  1. Datatype schema files will be read from the local filesystem at:
 //     /var/spool/datatypes/<datatype>.json
-//  2. Table schema files will be uploaded as:
-//     autoload/v0/tables/<experiment>/<datatype>-table.json
-//  3. Compressed bundle files will be uploaded as:
+//  2. Table schema files will be uploaded to GCS as:
+//     autoload/v0/tables/<experiment>/<datatype>.table.json
+//  3. JSONL files will be uploaded to GCS as:
 //     autoload/v0/<experiment>/<datatype>/<yyyy>/<mm>/<dd>/<timestamp>-<datatype>-<node-name>-<experiment>.jsonl.gz
-//  4. Compressed bundles index files will be uploaded as:
-//     autoload/v0/<experiment>/<datatype>/<yyyy>/<mm>/<dd>/<timestamp>-<datatype>-<node-name>-<experiment>.index.gz
 package main
 
 import (

@@ -17,7 +17,7 @@ import (
 
 const (
 	testBucket = "fake-bucket"
-	testObject = "autoload/v0/tables/jostler/foo1.json"
+	testObject = "autoload/v0/tables/jostler/foo1.table.json"
 
 	ansiGreen  = "\033[00;32m"
 	ansiBlue   = "\033[00;34m"
@@ -67,7 +67,7 @@ func TestPathForDatatype(t *testing.T) { //nolint:paralleltest
 
 func TestValidateAndUpload(t *testing.T) { //nolint:paralleltest,funlen
 	defer func() {
-		os.RemoveAll("testdata/foo1-table.json")
+		os.RemoveAll("testdata/foo1.table.json")
 	}()
 	saveGCSDownload := GCSDownload
 	saveGCSUpload := GCSUpload
@@ -175,7 +175,7 @@ func TestValidateAndUpload(t *testing.T) { //nolint:paralleltest,funlen
 
 	for i, test := range tests {
 		if test.rmTblSchemaFile {
-			os.RemoveAll(fmt.Sprintf("testdata/%s-table.json", test.datatype))
+			os.RemoveAll(fmt.Sprintf("testdata/%s.table.json", test.datatype))
 		}
 		GCSDownload = test.download
 		GCSUpload = test.upload

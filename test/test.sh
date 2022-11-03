@@ -64,7 +64,7 @@ run_tests() {
 
 		# Have jostler create a table schema with standard columns
 		# and the extracted datatype schema and save it as a JSON file.
-		execute ./jostler "${COMMON_FLAGS[@]}" -datatype "${datatype}" -dt-schema-file "${datatype}:${table}.datatype"
+		execute ./jostler "${COMMON_FLAGS[@]}" -datatype "${datatype}" -datatype-schema-file "${datatype}:${table}.datatype"
 
 		# Now verify BigQuery can create a table with the schema
 		# file that jostler created and saved.

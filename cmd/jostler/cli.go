@@ -81,7 +81,7 @@ func initFlags() {
 	flag.BoolVar(&verbose, "verbose", false, "enable verbose mode")
 	flag.DurationVar(&testInterval, "test-interval", 0, "time interval to stop running (for test purposes only)")
 
-	flag.Var(&dtSchemaFiles, "dt-schema-file", "schema for each datatype in the format <datatype>:<pathname>")
+	flag.Var(&dtSchemaFiles, "datatype-schema-file", "schema for each datatype in the format <datatype>:<pathname>")
 	flag.Var(&extensions, "extensions", "filename extensions to watch within <data-dir>/<experiment>")
 	flag.Var(&datatypes, "datatype", "required - datatype(s) to watch within <data-dir>/<experiment>")
 }
@@ -177,7 +177,7 @@ func validateSchemaFlags() error {
 //
 // The schema package is configured with the default path of datatype
 // schema files but datatype schema files can also be explicitly specified
-// via the -dt-schema-file flag.
+// via the -datatype-schema-file flag.
 func validateSchemaFiles() error {
 	for _, datatype := range datatypes {
 		dtSchemaFile := schema.PathForDatatype(datatype, dtSchemaFiles)

@@ -12,7 +12,6 @@ import (
 	"testing"
 
 	"cloud.google.com/go/storage"
-	"github.com/m-lab/jostler/internal/gcs"
 	"github.com/m-lab/jostler/internal/schema"
 )
 
@@ -25,7 +24,7 @@ const (
 	testNode        = "mlab1-lga01.mlab-sandbox.measurement-lab.org"
 	testDataHomeDir = "testdata"
 	testBucket      = "fake-bucket" // typically pusher-mlab-sandbox
-	testObject      = "autoload/v0/tables/jostler/foo1.json"
+	testObject      = "autoload/v0/tables/jostler/foo1.table.json"
 	testExperiment  = "jostler"
 	testDatatype    = "foo1"
 )
@@ -39,7 +38,7 @@ const (
 func TestCLI(t *testing.T) { //nolint:funlen,paralleltest
 	defer func() {
 		os.RemoveAll("foo1.json")
-		os.RemoveAll("testdata/foo1-table.json")
+		os.RemoveAll("testdata/foo1.table.json")
 	}()
 	saveGcsDownload := schema.GCSDownload
 	saveGcsUpload := schema.GCSUpload
@@ -76,8 +75,8 @@ func TestCLI(t *testing.T) { //nolint:funlen,paralleltest
 			"more datatype schemas than datatypes", false, errSchemaNums.Error(),
 			[]string{
 				"-gcs-bucket", testBucket, "-mlab-node-name", testNode, "-experiment", testExperiment, "-datatype", testDatatype,
-				"-dt-schema-file", "foo1.json",
-				"-dt-schema-file", "foo2.json",
+				"-datatype-schema-file", "foo1.json",
+				"-datatype-schema-file", "foo2.json",
 			},
 			panicGCSDownload, panicGCSUpload,
 		},
@@ -89,18 +88,18 @@ func TestCLI(t *testing.T) { //nolint:funlen,paralleltest
 		},
 		{
 			"local: non-existent specified datatype schema file", false, errReadFile.Error(),
-			[]string{"-local", "-experiment", testExperiment, "-datatype", testDatatype, "-dt-schema-file", "foo1:testdata/datatypes/foo1-non-existent.json"},
+			[]string{"-local", "-experiment", testExperiment, "-datatype", testDatatype, "-datatype-schema-file", "foo1:testdata/datatypes/foo1-non-existent.json"},
 			panicGCSDownload, panicGCSUpload,
 		},
 		{
 			"local: invalid foo1", false, errUnmarshalFile.Error(),
-			[]string{"-local", "-experiment", testExperiment, "-datatype", "foo1", "-dt-schema-file", "foo1:testdata/datatypes/foo1-invalid.json"},
+			[]string{"-local", "-experiment", testExperiment, "-datatype", "foo1", "-datatype-schema-file", "foo1:testdata/datatypes/foo1-invalid.json"},
 			panicGCSDownload, panicGCSUpload,
 		},
 		// Valid local mode command lines.
 		{
 			"local: valid foo1", false, "",
-			[]string{"-local", "-experiment", testExperiment, "-datatype", "foo1", "-dt-schema-file", "foo1:testdata/datatypes/foo1-valid.json"},
+			[]string{"-local", "-experiment", testExperiment, "-datatype", "foo1", "-datatype-schema-file", "foo1:testdata/datatypes/foo1-valid.json"},
 			panicGCSDownload, panicGCSUpload,
 		},
 		// Invalid daemon mode command lines.
@@ -133,7 +132,7 @@ func TestCLI(t *testing.T) { //nolint:funlen,paralleltest
 			"daemon: bad datatype schema filename", false, errSchemaFilename.Error(),
 			[]string{
 				"-gcs-bucket", testBucket, "-mlab-node-name", testNode, "-experiment", testExperiment, "-datatype", testDatatype,
-				"-dt-schema-file", "foo1.json",
+				"-datatype-schema-file", "foo1.json",
 			},
 			panicGCSDownload, panicGCSUpload,
 		},
@@ -141,7 +140,7 @@ func TestCLI(t *testing.T) { //nolint:funlen,paralleltest
 			"daemon: mismatch between datatype and schema filename", false, errSchemaNoMatch.Error(),
 			[]string{
 				"-gcs-bucket", testBucket, "-mlab-node-name", testNode, "-experiment", testExperiment, "-datatype", testDatatype,
-				"-dt-schema-file", "bar1:testdata/datatypes/foo1-valid.json",
+				"-datatype-schema-file", "bar1:testdata/datatypes/foo1-valid.json",
 			},
 			panicGCSDownload, panicGCSUpload,
 		},
@@ -154,13 +153,13 @@ func TestCLI(t *testing.T) { //nolint:funlen,paralleltest
 			"daemon: non-existent specified datatype schema file", false, errReadFile.Error(),
 			[]string{
 				"-gcs-bucket", testBucket, "-mlab-node-name", testNode, "-experiment", testExperiment, "-datatype", testDatatype,
-				"-dt-schema-file", "foo1:testdata/datatypes/foo1-non-existent.json",
+				"-datatype-schema-file", "foo1:testdata/datatypes/foo1-non-existent.json",
 			},
 			panicGCSDownload, panicGCSUpload,
 		},
 		{
 			"daemon: invalid foo1", false, errUnmarshalFile.Error(),
-			[]string{"-gcs-bucket", testBucket, "-mlab-node-name", testNode, "-experiment", testExperiment, "-datatype", "foo1", "-dt-schema-file", "foo1:testdata/datatypes/foo1-invalid.json"},
+			[]string{"-gcs-bucket", testBucket, "-mlab-node-name", testNode, "-experiment", testExperiment, "-datatype", "foo1", "-datatype-schema-file", "foo1:testdata/datatypes/foo1-invalid.json"},
 			panicGCSDownload, panicGCSUpload,
 		},
 		// Valid daemon mode command lines. The following four
@@ -178,7 +177,7 @@ func TestCLI(t *testing.T) { //nolint:funlen,paralleltest
 				"-data-home-dir", testDataHomeDir,
 				"-experiment", testExperiment,
 				"-datatype", "foo1",
-				"-dt-schema-file", "foo1:testdata/datatypes/foo1-valid.json",
+				"-datatype-schema-file", "foo1:testdata/datatypes/foo1-valid.json",
 			},
 			fakeGCSDownload, fakeGCSUpload,
 		},
@@ -190,7 +189,7 @@ func TestCLI(t *testing.T) { //nolint:funlen,paralleltest
 				"-data-home-dir", testDataHomeDir,
 				"-experiment", testExperiment,
 				"-datatype", "foo1",
-				"-dt-schema-file", "foo1:testdata/datatypes/foo1-valid.json",
+				"-datatype-schema-file", "foo1:testdata/datatypes/foo1-valid.json",
 			},
 			fakeGCSDownload, panicGCSUpload,
 		},
@@ -202,7 +201,7 @@ func TestCLI(t *testing.T) { //nolint:funlen,paralleltest
 				"-data-home-dir", testDataHomeDir,
 				"-experiment", testExperiment,
 				"-datatype", "foo1",
-				"-dt-schema-file", "foo1:testdata/datatypes/foo1-valid-superset.json",
+				"-datatype-schema-file", "foo1:testdata/datatypes/foo1-valid-superset.json",
 			},
 			fakeGCSDownload, fakeGCSUpload,
 		},
@@ -214,17 +213,10 @@ func TestCLI(t *testing.T) { //nolint:funlen,paralleltest
 				"-data-home-dir", testDataHomeDir,
 				"-experiment", testExperiment,
 				"-datatype", "foo1",
-				"-dt-schema-file", "foo1:testdata/datatypes/foo1-valid.json",
+				"-datatype-schema-file", "foo1:testdata/datatypes/foo1-valid.json",
 			},
 			fakeGCSDownload, panicGCSUpload,
 		},
-	}
-	// Remove gs://pusher-mlab-sandbox/autoload/v0/tables/jostler/foo1.json
-	// before running the tests.
-	if err := gcs.Delete(context.Background(), testBucket, testObject); err != nil {
-		if !errors.Is(err, storage.ErrObjectNotExist) {
-			t.Fatalf("'%v:%v': %v", testBucket, testObject, err)
-		}
 	}
 	for i, test := range tests {
 		if test.rmTblSchemaFile {

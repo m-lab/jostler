@@ -43,7 +43,7 @@ type UploadBundle struct {
 // "foo1-mlab3-akl01-ndt".
 type GCSConfig struct {
 	Bucket  string // GCS bucket name
-	DataDir string // "path" to datatype subdirectory in GCS (e.g., /autoload/v0/tables/<experiment>/<datatype>-table.json)
+	DataDir string // "path" to datatype subdirectory in GCS (e.g., /autoload/v0/tables/<experiment>/<datatype>.table.json)
 	BaseID  string // ID component in the filename of JSONL bundle (e.g., <datatype>-<machine>-<site>-<experiment>)
 }
 
