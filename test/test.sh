@@ -64,7 +64,7 @@ run_tests() {
 
 		# Have jostler create a table schema with standard columns
 		# and the extracted datatype schema and save it as a JSON file.
-		execute ./jostler "${COMMON_FLAGS[@]}" -datatype "${datatype}" -schema-file "${datatype}:${table}.datatype"
+		execute ./jostler "${COMMON_FLAGS[@]}" -datatype "${datatype}" -datatype-schema-file "${datatype}:${table}.datatype"
 
 		# Now verify BigQuery can create a table with the schema
 		# file that jostler created and saved.
@@ -76,7 +76,7 @@ run_tests() {
 		fi
 
 		# Create a table with the schema that jostler saved.
-		execute bq mk --project_id mlab-sandbox --table "${USER}.${datatype}" "${datatype}-schema.json"
+		execute bq mk --project_id mlab-sandbox --table "${USER}.${datatype}" "${datatype}.json"
 
 		# Show the newly created table's full schema.
 		execute bq show --project_id mlab-sandbox --format prettyjson "${USER}.${datatype}"
