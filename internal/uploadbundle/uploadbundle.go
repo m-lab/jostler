@@ -36,21 +36,22 @@ type UploadBundle struct {
 
 // GCSConfig defines GCS configuration options.
 //
-// BaseID is the ID component in the base name of
-// the JSONL bundles and can be any string.  M-Lab uses
-// "<datatype>-<machine>-<site>-<experiment>".  For example, the BaseID
-// of bundle "20220914T143133.179976Z-foo1-mlab3-akl01-ndt.jsonl.gz" is
-// "foo1-mlab3-akl01-ndt".
+// GCS object names of JSONL bundles have the following format:
+// autoload/v0/<experiment>/<datatype>/<yyyy>/<mm>/<dd>/<timestamp>-<datatype>-<node-name>-<experiment>.jsonl.gz
+// |------------DataDir--------------|                              |-------------BaseID--------------|
+//
+// Note that while slashes ("/") in GCS object names create the illusion
+// of a directory hierarchy, GCS has a flat namesapce.
 type GCSConfig struct {
 	Bucket  string // GCS bucket name
-	DataDir string // "path" to datatype subdirectory in GCS (e.g., /autoload/v0/tables/<experiment>/<datatype>.table.json)
-	BaseID  string // ID component in the filename of JSONL bundle (e.g., <datatype>-<machine>-<site>-<experiment>)
+	DataDir string // see the above comment
+	BaseID  string // see the above comment
 }
 
 // BundleConfig defines bundle configuration options.
 type BundleConfig struct {
 	Datatype string        // datatype (e.g., scamper1)
-	DataDir  string        // path to datatype subdirectory on local disk (e.g., /cache/data/<experiment>/<datatype>)
+	DataDir  string        // path to datatype subdirectory on local disk (e.g., /var/spool/<experiment>/<datatype>)
 	SizeMax  uint          // bundle will be uploaded when it reaches this size
 	AgeMax   time.Duration // bundle will be uploaded when it reaches this age
 	NoRm     bool          // XXX debugging support - delete when done

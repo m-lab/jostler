@@ -27,8 +27,8 @@ type (
 )
 
 var (
-	datatypePathTemplate = "/var/spool/datatypes/{{DATATYPE}}.json"
-	objectPrefixTemplate = "autoload/v0/tables/{{EXPERIMENT}}/{{DATATYPE}}.table.json"
+	dtSchemaPathTemplate  = "/var/spool/datatypes/<datatype>.json"
+	tblSchemaPathTemplate = "autoload/v0/tables/<experiment>/<datatype>.table.json"
 
 	ErrReadSchema     = errors.New("failed to read schema file")
 	ErrSchemaFromJSON = errors.New("failed to create schema from JSON")
@@ -61,7 +61,7 @@ func PathForDatatype(datatype string, dtSchemaFiles []string) string {
 			return (dtSchemaFiles[i])[len(datatype)+1:]
 		}
 	}
-	return strings.Replace(datatypePathTemplate, "{{DATATYPE}}", datatype, 1)
+	return strings.Replace(dtSchemaPathTemplate, "<datatype>", datatype, 1)
 }
 
 // ValidateAndUpload compares the current table schema against the
@@ -103,8 +103,8 @@ func uploadTableSchema(bucket, experiment, datatype, dtSchemaFile string) error 
 	if err != nil {
 		return err
 	}
-	objPath := strings.Replace(objectPrefixTemplate, "{{EXPERIMENT}}", experiment, 1)
-	objPath = strings.Replace(objPath, "{{DATATYPE}}", datatype, 1)
+	objPath := strings.Replace(tblSchemaPathTemplate, "<experiment>", experiment, 1)
+	objPath = strings.Replace(objPath, "<datatype>", datatype, 1)
 	verbose("uploading '%v:%v'", bucket, objPath)
 	if err := GCSUpload(ctx, bucket, objPath, tblSchemaJSON); err != nil {
 		return fmt.Errorf("%v: %w", ErrUpload, err)
@@ -133,8 +133,8 @@ func checkTable(bucket, experiment, datatype, dtSchemaFile string) (*mapDiff, er
 	// there is nothing to validate for this datatype and the new table
 	// schema should be uploaded.
 	ctx := context.Background()
-	objPath := strings.Replace(objectPrefixTemplate, "{{EXPERIMENT}}", experiment, 1)
-	objPath = strings.Replace(objPath, "{{DATATYPE}}", datatype, 1)
+	objPath := strings.Replace(tblSchemaPathTemplate, "<experiment>", experiment, 1)
+	objPath = strings.Replace(objPath, "<datatype>", datatype, 1)
 	verbose("downloading '%v:%v'", bucket, objPath)
 	oldTblSchemaJSON, err := GCSDownload(ctx, bucket, objPath)
 	if err != nil {

@@ -69,7 +69,7 @@ func initFlags() {
 	flag.BoolVar(&bundleNoRm, "no-rm", false, "do not remove files of a bundle after successful upload") // XXX debugging support - delete when done
 
 	// Flags related to where to watch for data (inotify events).
-	flag.StringVar(&dataHomeDir, "data-home-dir", "/var/spool", "directory pathname under which experiment data is created")
+	flag.StringVar(&dataHomeDir, "data-home-dir", "/var/spool", "directory pathname under which measurement data is created")
 	extensions = flagx.StringArray{".json"}
 	flag.StringVar(&experiment, "experiment", "", "required - name of the experiment (e.g., ndt)")
 	datatypes = flagx.StringArray{}
