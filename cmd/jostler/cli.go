@@ -2,11 +2,9 @@
 package main
 
 import (
-	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
-	"os"
 	"strings"
 	"time"
 
@@ -14,6 +12,7 @@ import (
 	"github.com/m-lab/go/host"
 	"github.com/m-lab/jostler/internal/gcs"
 	"github.com/m-lab/jostler/internal/schema"
+	"github.com/m-lab/jostler/internal/testhelper"
 	"github.com/m-lab/jostler/internal/uploadbundle"
 	"github.com/m-lab/jostler/internal/watchdir"
 )
@@ -52,8 +51,7 @@ var (
 	errSchemaNums     = errors.New("more schema files than datatypes")
 	errSchemaNoMatch  = errors.New("does not match any specified datatypes")
 	errSchemaFilename = errors.New("is not in <datatype>:<pathname> format")
-	errReadFile       = errors.New("failed to read file")
-	errUnmarshalFile  = errors.New("failed to unmarshal file")
+	errValidate       = errors.New("failed to validate")
 )
 
 func initFlags() {
@@ -109,10 +107,10 @@ func parseAndValidateCLI() error {
 	// Enable verbose mode in all packages as soon as the flags are
 	// parsed because they may be called for during argument validation.
 	if verbose {
-		gcs.Verbose(vLogf)
-		schema.Verbose(vLogf)
-		watchdir.Verbose(vLogf)
-		uploadbundle.Verbose(vLogf)
+		gcs.Verbose(testhelper.VLogf)
+		schema.Verbose(testhelper.VLogf)
+		watchdir.Verbose(testhelper.VLogf)
+		uploadbundle.Verbose(testhelper.VLogf)
 	}
 
 	if extensions == nil {
@@ -181,15 +179,8 @@ func validateSchemaFlags() error {
 func validateSchemaFiles() error {
 	for _, datatype := range datatypes {
 		dtSchemaFile := schema.PathForDatatype(datatype, dtSchemaFiles)
-		// Does it exist?
-		contents, err := os.ReadFile(dtSchemaFile)
-		if err != nil {
-			return fmt.Errorf("%v: %w", errReadFile, err)
-		}
-		// Is it well-formed JSON?
-		var data []interface{}
-		if err = json.Unmarshal(contents, &data); err != nil {
-			return fmt.Errorf("%v: %v: %w", dtSchemaFile, errUnmarshalFile, err)
+		if err := schema.ValidateSchemaFile(dtSchemaFile); err != nil {
+			return fmt.Errorf("%v: %w", errValidate, err)
 		}
 	}
 	return nil
