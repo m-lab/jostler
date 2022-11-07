@@ -2,29 +2,21 @@
 package main
 
 import (
-	"context"
 	"errors"
 	"flag"
 	"log"
 	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
-	"cloud.google.com/go/storage"
 	"github.com/m-lab/jostler/internal/schema"
-)
-
-type (
-	download func(context.Context, string, string) ([]byte, error) // gcs.Download signature
-	upload   func(context.Context, string, string, []byte) error   // gcs.Upload signature
+	"github.com/m-lab/jostler/internal/testhelper"
 )
 
 const (
 	testNode        = "mlab1-lga01.mlab-sandbox.measurement-lab.org"
-	testDataHomeDir = "testdata"
+	testDataHomeDir = "testdata"    // typically /var/spool
 	testBucket      = "fake-bucket" // typically pusher-mlab-sandbox
-	testObject      = "autoload/v0/tables/jostler/foo1.table.json"
 	testExperiment  = "jostler"
 	testDatatype    = "foo1"
 )
@@ -36,40 +28,25 @@ const (
 // that the function length is more then 120 lines and also
 // because we should not run these tests in parallel.
 func TestCLI(t *testing.T) { //nolint:funlen,paralleltest
-	defer func() {
-		os.RemoveAll("foo1.json")
-		os.RemoveAll("testdata/foo1.table.json")
-	}()
-	saveGcsDownload := schema.GCSDownload
-	saveGcsUpload := schema.GCSUpload
-	defer func() {
-		schema.GCSDownload = saveGcsDownload
-		schema.GCSUpload = saveGcsUpload
-	}()
 	tests := []struct {
 		name            string   // name of the test
 		rmTblSchemaFile bool     // if true, remove table schema file before running the test
 		wantErrStr      string   // error message
 		args            []string // flags and arguments
-		download        download // mock GCS download function
-		upload          upload   // mock GCS upload function
 	}{
 		// Command line usage.
 		{
 			"local: help", false, flag.ErrHelp.Error(),
 			[]string{"-h"},
-			panicGCSDownload, panicGCSUpload,
 		},
 		// Invalid command lines.
 		{
 			"extra args", false, errExtraArgs.Error(),
 			[]string{"extra-arg"},
-			panicGCSDownload, panicGCSUpload,
 		},
 		{
 			"undefined flag", false, "provided but not defined",
 			[]string{"-undefined-flag"},
-			panicGCSDownload, panicGCSUpload,
 		},
 		{
 			"more datatype schemas than datatypes", false, errSchemaNums.Error(),
@@ -78,55 +55,45 @@ func TestCLI(t *testing.T) { //nolint:funlen,paralleltest
 				"-datatype-schema-file", "foo1.json",
 				"-datatype-schema-file", "foo2.json",
 			},
-			panicGCSDownload, panicGCSUpload,
 		},
 		// Invalid local mode command lines.
 		{
-			"local: non-existent default datatype schema file", false, errReadFile.Error(),
+			"local: non-existent default datatype schema file", false, schema.ErrReadSchema.Error(),
 			[]string{"-local", "-experiment", testExperiment, "-datatype", testDatatype},
-			panicGCSDownload, panicGCSUpload,
 		},
 		{
-			"local: non-existent specified datatype schema file", false, errReadFile.Error(),
+			"local: non-existent specified datatype schema file", false, schema.ErrReadSchema.Error(),
 			[]string{"-local", "-experiment", testExperiment, "-datatype", testDatatype, "-datatype-schema-file", "foo1:testdata/datatypes/foo1-non-existent.json"},
-			panicGCSDownload, panicGCSUpload,
 		},
 		{
-			"local: invalid foo1", false, errUnmarshalFile.Error(),
+			"local: invalid foo1", false, schema.ErrUnmarshal.Error(),
 			[]string{"-local", "-experiment", testExperiment, "-datatype", "foo1", "-datatype-schema-file", "foo1:testdata/datatypes/foo1-invalid.json"},
-			panicGCSDownload, panicGCSUpload,
 		},
 		// Valid local mode command lines.
 		{
 			"local: valid foo1", false, "",
 			[]string{"-local", "-experiment", testExperiment, "-datatype", "foo1", "-datatype-schema-file", "foo1:testdata/datatypes/foo1-valid.json"},
-			panicGCSDownload, panicGCSUpload,
 		},
 		// Invalid daemon mode command lines.
 		{
 			"daemon: no node", false, errNoNode.Error(),
 			[]string{"-gcs-bucket", testBucket, "-experiment", testExperiment, "-datatype", testDatatype},
-			panicGCSDownload, panicGCSUpload,
 		},
 		{
 			"daemon: no bucket", false, errNoBucket.Error(),
 			[]string{"-mlab-node-name", testNode, "-experiment", testExperiment, "-datatype", testDatatype},
-			panicGCSDownload, panicGCSUpload,
 		},
 		{
 			"daemon: no experiment", false, errNoExperiment.Error(),
 			[]string{"-gcs-bucket", testBucket, "-mlab-node-name", testNode, "-datatype", testDatatype},
-			panicGCSDownload, panicGCSUpload,
 		},
 		{
 			"daemon: no datatype", false, errNoDatatype.Error(),
 			[]string{"-gcs-bucket", testBucket, "-mlab-node-name", testNode, "-experiment", testExperiment},
-			panicGCSDownload, panicGCSUpload,
 		},
 		{
 			"daemon: invalid hostname", false, "Invalid hostname",
 			[]string{"-gcs-bucket", testBucket, "-mlab-node-name", "hostname", "-experiment", testExperiment, "-datatype", testDatatype},
-			panicGCSDownload, panicGCSUpload,
 		},
 		{
 			"daemon: bad datatype schema filename", false, errSchemaFilename.Error(),
@@ -134,7 +101,6 @@ func TestCLI(t *testing.T) { //nolint:funlen,paralleltest
 				"-gcs-bucket", testBucket, "-mlab-node-name", testNode, "-experiment", testExperiment, "-datatype", testDatatype,
 				"-datatype-schema-file", "foo1.json",
 			},
-			panicGCSDownload, panicGCSUpload,
 		},
 		{
 			"daemon: mismatch between datatype and schema filename", false, errSchemaNoMatch.Error(),
@@ -142,25 +108,21 @@ func TestCLI(t *testing.T) { //nolint:funlen,paralleltest
 				"-gcs-bucket", testBucket, "-mlab-node-name", testNode, "-experiment", testExperiment, "-datatype", testDatatype,
 				"-datatype-schema-file", "bar1:testdata/datatypes/foo1-valid.json",
 			},
-			panicGCSDownload, panicGCSUpload,
 		},
 		{
-			"daemon: non-existent default datatype schema file", false, errReadFile.Error(),
+			"daemon: non-existent default datatype schema file", false, schema.ErrReadSchema.Error(),
 			[]string{"-gcs-bucket", testBucket, "-mlab-node-name", testNode, "-experiment", testExperiment, "-datatype", testDatatype},
-			panicGCSDownload, panicGCSUpload,
 		},
 		{
-			"daemon: non-existent specified datatype schema file", false, errReadFile.Error(),
+			"daemon: non-existent specified datatype schema file", false, schema.ErrReadSchema.Error(),
 			[]string{
 				"-gcs-bucket", testBucket, "-mlab-node-name", testNode, "-experiment", testExperiment, "-datatype", testDatatype,
 				"-datatype-schema-file", "foo1:testdata/datatypes/foo1-non-existent.json",
 			},
-			panicGCSDownload, panicGCSUpload,
 		},
 		{
-			"daemon: invalid foo1", false, errUnmarshalFile.Error(),
+			"daemon: invalid foo1", false, schema.ErrUnmarshal.Error(),
 			[]string{"-gcs-bucket", testBucket, "-mlab-node-name", testNode, "-experiment", testExperiment, "-datatype", "foo1", "-datatype-schema-file", "foo1:testdata/datatypes/foo1-invalid.json"},
-			panicGCSDownload, panicGCSUpload,
 		},
 		// Valid daemon mode command lines. The following four
 		// tests cover the four scenarios described in main.go
@@ -172,66 +134,73 @@ func TestCLI(t *testing.T) { //nolint:funlen,paralleltest
 		{
 			"daemon: scenario 1", true, "",
 			[]string{
-				"-gcs-bucket", testBucket,
+				"-gcs-bucket", "newclient,download,upload",
 				"-mlab-node-name", testNode,
 				"-data-home-dir", testDataHomeDir,
 				"-experiment", testExperiment,
 				"-datatype", "foo1",
 				"-datatype-schema-file", "foo1:testdata/datatypes/foo1-valid.json",
 			},
-			fakeGCSDownload, fakeGCSUpload,
 		},
 		{
 			"daemon: scenario 2", false, "",
 			[]string{
-				"-gcs-bucket", testBucket,
+				"-gcs-bucket", "newclient,download",
 				"-mlab-node-name", testNode,
 				"-data-home-dir", testDataHomeDir,
 				"-experiment", testExperiment,
 				"-datatype", "foo1",
 				"-datatype-schema-file", "foo1:testdata/datatypes/foo1-valid.json",
 			},
-			fakeGCSDownload, panicGCSUpload,
 		},
 		{
 			"daemon: scenario 3", false, "",
 			[]string{
-				"-gcs-bucket", testBucket,
+				"-gcs-bucket", "newclient,download,upload",
 				"-mlab-node-name", testNode,
 				"-data-home-dir", testDataHomeDir,
 				"-experiment", testExperiment,
 				"-datatype", "foo1",
 				"-datatype-schema-file", "foo1:testdata/datatypes/foo1-valid-superset.json",
 			},
-			fakeGCSDownload, fakeGCSUpload,
 		},
 		{
 			"daemon: scenario 4", false, schema.ErrOnlyInOld.Error(),
 			[]string{
-				"-gcs-bucket", testBucket,
+				"-gcs-bucket", "newclient,download",
 				"-mlab-node-name", testNode,
 				"-data-home-dir", testDataHomeDir,
 				"-experiment", testExperiment,
 				"-datatype", "foo1",
 				"-datatype-schema-file", "foo1:testdata/datatypes/foo1-valid.json",
 			},
-			fakeGCSDownload, panicGCSUpload,
 		},
 	}
+	// Use a fake GCS implementation that reads from and writes to
+	// the local filesystemi.
+	saveGCSClient := schema.GCSClient
+	schema.GCSClient = testhelper.FakeNewClient
+	defer func() {
+		schema.GCSClient = saveGCSClient
+		os.RemoveAll("foo1.json")
+		os.RemoveAll("testdata/autoload")
+	}()
 	for i, test := range tests {
 		if test.rmTblSchemaFile {
-			os.RemoveAll("testdata/foo1.json")
+			os.RemoveAll("testdata/autoload/v0/tables/jostler/foo1.table.json")
 		}
-		schema.GCSDownload = test.download
-		schema.GCSUpload = test.upload
 		var s string
 		if test.wantErrStr == "" {
 			s = "should succeed"
 		} else {
 			s = "should fail"
 		}
-		t.Logf(">>> test %02d: %s: %v", i, s, test.name)
-		callMain(t, test.args, test.wantErrStr)
+		t.Logf("%s>>> test %02d: %s: %v%s", testhelper.ANSIPurple, i, s, test.name, testhelper.ANSIEnd)
+		args := test.args
+		if testing.Verbose() {
+			args = append(args, "-verbose")
+		}
+		callMain(t, args, test.wantErrStr)
 	}
 }
 
@@ -263,10 +232,10 @@ func callMain(t *testing.T, osArgs []string, wantErrStr string) {
 		os.Args = saveOSArgs
 		fatal = saveFatal
 	}()
-	os.Args = []string{"jostler-test", "-test-interval", "2s", "-verbose"}
+	os.Args = []string{"jostler-test", "-test-interval", "2s"}
 	os.Args = append(os.Args, osArgs...)
 	fatal = log.Panic
-	t.Logf(">>> %v", strings.Join(os.Args, " "))
+	t.Logf("%s>>> %v%s", testhelper.ANSIPurple, strings.Join(os.Args, " "), testhelper.ANSIEnd)
 	main()
 }
 
@@ -285,27 +254,4 @@ func recoverError(r any) error {
 		err = errors.New("unknown panic") //nolint
 	}
 	return err
-}
-
-func panicGCSDownload(ctx context.Context, bucket, objPath string) ([]byte, error) {
-	panic("unexpected call to gcs.Download()")
-}
-
-func panicGCSUpload(ctx context.Context, bucket, objPath string, tblSchemaJSON []byte) error {
-	panic("unexpected call to gcs.Upload()")
-}
-
-func fakeGCSDownload(ctx context.Context, bucket, objPath string) ([]byte, error) {
-	contents, err := os.ReadFile(filepath.Join("testdata", filepath.Base(objPath)))
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return nil, storage.ErrObjectNotExist
-		}
-		return nil, err //nolint:wrapcheck
-	}
-	return contents, nil
-}
-
-func fakeGCSUpload(ctx context.Context, bucket, objPath string, tblSchemaJSON []byte) error {
-	return os.WriteFile(filepath.Join("testdata", filepath.Base(objPath)), tblSchemaJSON, 0o666) //nolint:wrapcheck
 }

@@ -47,8 +47,6 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"runtime"
-	"strings"
 	"time"
 
 	"github.com/m-lab/go/host"
@@ -212,40 +210,4 @@ func startUploader(mainCtx context.Context, mainCancel context.CancelFunc, statu
 		status <- ubClient.BundleAndUpload(mainCtx)
 	}(ubClient, status)
 	return ubClient, nil
-}
-
-const (
-	ansiGreen  = "\033[00;32m"
-	ansiBlue   = "\033[00;34m"
-	ansiPurple = "\033[00;35m"
-	ansiEnd    = "\033[0m"
-)
-
-// vLogf logs messages in verbose mode (mostly for debugging).  Messages
-// are prefixed by "filename:line-number function()" printed in green and
-// the message printed in blue for easier visual inspection.
-func vLogf(format string, args ...interface{}) {
-	if !verbose {
-		return
-	}
-	pc, file, line, ok := runtime.Caller(1)
-	if !ok {
-		log.Printf(format, args...)
-		return
-	}
-	details := runtime.FuncForPC(pc)
-	if details == nil {
-		log.Printf(format, args...)
-		return
-	}
-	file = filepath.Base(file)
-	idx := strings.LastIndex(details.Name(), "/")
-	if idx == -1 {
-		idx = 0
-	} else {
-		idx++
-	}
-	a := []interface{}{ansiGreen, file, line, details.Name()[idx:], ansiBlue}
-	a = append(a, args...)
-	log.Printf("%s%s:%d: %s(): %s"+format+"%s", append(a, ansiEnd)...)
 }

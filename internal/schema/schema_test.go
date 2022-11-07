@@ -1,64 +1,50 @@
-// Package schema implements code that handles datatype and table schemas.
-package schema //nolint:testpackage //nolint:testpackage
+// Package schema_test implements black-box unit testing for package schema.
+package schema_test
 
 import (
-	"context"
-	"errors"
-	"fmt"
-	"log"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 
-	"cloud.google.com/go/storage"
+	"github.com/m-lab/jostler/internal/schema"
+	"github.com/m-lab/jostler/internal/testhelper"
 )
 
 const (
-	testBucket = "fake-bucket"
-	testObject = "autoload/v0/tables/jostler/foo1.table.json"
-
-	ansiGreen  = "\033[00;32m"
-	ansiBlue   = "\033[00;34m"
-	ansiPurple = "\033[00;35m"
-	ansiEnd    = "\033[0m"
+	testExperiment = "jostler"
+	testDatatype   = "foo1"
 )
 
 func TestVerbose(t *testing.T) { //nolint:paralleltest
-	Verbose(fakeVerbosef)
+	schema.Verbose(func(fmt string, args ...interface{}) {})
 }
 
 func TestPathForDatatype(t *testing.T) { //nolint:paralleltest
-	// PathForDatatype() should not download from or upload to GCS.
-	saveGCSDownload := GCSDownload
-	saveGCSUpload := GCSUpload
-	defer func() {
-		GCSDownload = saveGCSDownload
-		GCSUpload = saveGCSUpload
-	}()
-	GCSDownload = panicGcsDownload
-	GCSUpload = panicGcsUpload
-
+	// Since PathForDatatype() should not download from or upload
+	// to GCS, set bucket to "" to force a panic in fake GCS.
 	tests := []struct {
+		bucket        string
 		datatype      string
 		dtSchemaFiles []string
 		want          string
 	}{
 		{
-			datatype:      "foo1",
+			bucket:        "fake-bucket",
+			datatype:      testDatatype,
 			dtSchemaFiles: []string{"foo1:/path/to/foo1.json", "bar1:/path/to/bar1.json"},
 			want:          "/path/to/foo1.json",
 		},
 		{
+			bucket:        "fake-bucket",
 			datatype:      "baz1",
 			dtSchemaFiles: []string{"foo1:/path/to/foo1.json", "bar1:/path/to/bar1.json"},
 			want:          "/var/spool/datatypes/baz1.json",
 		},
 	}
 	for i, test := range tests {
-		t.Logf("%s>>> test %02d%s", ansiPurple, i, ansiEnd)
-		dtSchemaFile := PathForDatatype(test.datatype, test.dtSchemaFiles)
+		t.Logf("%s>>> test %02d%s", testhelper.ANSIPurple, i, testhelper.ANSIEnd)
+		dtSchemaFile := schema.PathForDatatype(test.datatype, test.dtSchemaFiles)
 		if dtSchemaFile != test.want {
 			t.Fatalf("PathForDatatype() = %v, want: %v", dtSchemaFile, test.want)
 		}
@@ -66,128 +52,144 @@ func TestPathForDatatype(t *testing.T) { //nolint:paralleltest
 }
 
 func TestValidateAndUpload(t *testing.T) { //nolint:paralleltest,funlen
-	defer func() {
-		os.RemoveAll("testdata/foo1.table.json")
-	}()
-	saveGCSDownload := GCSDownload
-	saveGCSUpload := GCSUpload
-	defer func() {
-		GCSDownload = saveGCSDownload
-		GCSUpload = saveGCSUpload
-	}()
+	if testing.Verbose() {
+		schema.Verbose(testhelper.VLogf)
+		defer schema.Verbose(func(fmt string, args ...interface{}) {})
+	}
 	tests := []struct {
 		name            string
+		tblSchemaFile   string
 		rmTblSchemaFile bool
 		bucket          string
-		object          string
 		experiment      string
 		datatype        string
 		dtSchemaFile    string
-		download        func(context.Context, string, string) ([]byte, error)
-		upload          func(context.Context, string, string, []byte) error
-		wantErr         error
+
+		wantErr error
 	}{
 		{
 			name:            "non-existent datatype schema file, should not upload",
+			tblSchemaFile:   "autoload/v0/tables/jostler/foo1.table.json",
 			rmTblSchemaFile: false,
-			bucket:          testBucket,
-			object:          testObject,
-			experiment:      "jostler",
-			datatype:        "foo1",
-			dtSchemaFile:    "testdata/foo1:non-existent.json",
-			download:        fakeGcsDownload,
-			upload:          panicGcsUpload,
-			wantErr:         ErrReadSchema,
+			bucket:          "fake-bucket",
+			experiment:      testExperiment,
+			datatype:        testDatatype,
+			dtSchemaFile:    "testdata/datatypes/non-existent.json", // this file doesn't exist
+			wantErr:         schema.ErrReadSchema,
+		},
+		{
+			name:            "invalid datatype schema file, should not upload",
+			tblSchemaFile:   "autoload/v0/tables/jostler/foo1.table.json",
+			rmTblSchemaFile: false,
+			bucket:          "fake-bucket",
+			experiment:      testExperiment,
+			datatype:        testDatatype,
+			dtSchemaFile:    "testdata/datatypes/foo1-invalid.json", // this file doesn't exist
+			wantErr:         schema.ErrUnmarshal,
+		},
+		{
+			name:            "force storage client creation",
+			tblSchemaFile:   "autoload/v0/tables/jostler/foo1.table.json",
+			rmTblSchemaFile: false,
+			bucket:          "failnewclient",
+			experiment:      testExperiment,
+			datatype:        testDatatype,
+			dtSchemaFile:    "testdata/datatypes/foo1-valid.json",
+			wantErr:         schema.ErrStorageClient,
+		},
+		{
+			name:            "scenario 1 - old doesn't exist, should upload, but force upload failure",
+			tblSchemaFile:   "autoload/v0/tables/jostler/foo1.table.json",
+			rmTblSchemaFile: true,
+			bucket:          "newclient,download,failupload",
+			experiment:      testExperiment,
+			datatype:        testDatatype,
+			dtSchemaFile:    "testdata/datatypes/foo1-valid.json",
+			wantErr:         schema.ErrUpload,
 		},
 		{
 			name:            "scenario 1 - old doesn't exist, should upload",
+			tblSchemaFile:   "autoload/v0/tables/jostler/foo1.table.json",
 			rmTblSchemaFile: true,
-			bucket:          testBucket,
-			object:          testObject,
-			experiment:      "jostler",
-			datatype:        "foo1",
-			dtSchemaFile:    "testdata/foo1-valid.json",
-			download:        fakeGcsDownload,
-			upload:          fakeGcsUpload,
+			bucket:          "newclient,download,upload",
+			experiment:      testExperiment,
+			datatype:        testDatatype,
+			dtSchemaFile:    "testdata/datatypes/foo1-valid.json",
 			wantErr:         nil,
 		},
 		{
-			name:            "scenario 2 - old exists and matches new, should not upload",
+			name:            "scenario 2 - old exists, new matches, but force download failure",
+			tblSchemaFile:   "autoload/v0/tables/jostler/foo1.table.json",
 			rmTblSchemaFile: false,
-			bucket:          testBucket,
-			object:          testObject,
-			experiment:      "jostler",
-			datatype:        "foo1",
-			dtSchemaFile:    "testdata/foo1-valid.json",
-			download:        fakeGcsDownload,
-			upload:          panicGcsUpload,
+			bucket:          "newclient,faildownload",
+			experiment:      testExperiment,
+			datatype:        testDatatype,
+			dtSchemaFile:    "testdata/datatypes/foo1-valid.json",
+			wantErr:         schema.ErrDownload,
+		},
+		{
+			name:            "scenario 2 - old exists, new matches, should not upload",
+			tblSchemaFile:   "autoload/v0/tables/jostler/foo1.table.json",
+			rmTblSchemaFile: false,
+			bucket:          "newclient,download",
+			experiment:      testExperiment,
+			datatype:        testDatatype,
+			dtSchemaFile:    "testdata/datatypes/foo1-valid.json",
 			wantErr:         nil,
 		},
 		{
-			name:            "scenario 3 - new is a superset of old, should upload",
+			name:            "scenario 3 - old exists, new is a superset, should upload",
+			tblSchemaFile:   "autoload/v0/tables/jostler/foo1.table.json",
 			rmTblSchemaFile: false,
-			bucket:          testBucket,
-			object:          testObject,
-			experiment:      "jostler",
-			datatype:        "foo1",
-			dtSchemaFile:    "testdata/foo1-valid-superset.json",
-			download:        fakeGcsDownload,
-			upload:          fakeGcsUpload,
+			bucket:          "newclient,download,upload",
+			experiment:      testExperiment,
+			datatype:        testDatatype,
+			dtSchemaFile:    "testdata/datatypes/foo1-valid-superset.json",
 			wantErr:         nil,
 		},
 		{
-			name:            "scenario 4 - new is incompatible with old due to missing field mismatch, should not upload",
+			name:            "scenario 4 - old exists, new is incompatible due to missing field mismatch, should not upload",
+			tblSchemaFile:   "autoload/v0/tables/jostler/foo1.table.json",
 			rmTblSchemaFile: false,
-			bucket:          testBucket,
-			object:          testObject,
-			experiment:      "jostler",
-			datatype:        "foo1",
-			dtSchemaFile:    "testdata/foo1-valid.json",
-			download:        fakeGcsDownload,
-			upload:          panicGcsUpload,
-			wantErr:         ErrOnlyInOld,
+			bucket:          "newclient,download",
+			experiment:      testExperiment,
+			datatype:        testDatatype,
+			dtSchemaFile:    "testdata/datatypes/foo1-valid.json",
+			wantErr:         schema.ErrOnlyInOld,
 		},
 		{
-			name:            "scenario 4 - new is incompatible with old due to field types, should not upload",
+			name:            "scenario 4 - old exists, new is incompatible due to field types, should not upload",
+			tblSchemaFile:   "autoload/v0/tables/jostler/foo1.table.json",
 			rmTblSchemaFile: false,
-			bucket:          testBucket,
-			object:          testObject,
-			experiment:      "jostler",
-			datatype:        "foo1",
-			dtSchemaFile:    "testdata/foo1-incompatible.json",
-			download:        fakeGcsDownload,
-			upload:          panicGcsUpload,
-			wantErr:         ErrTypeMismatch,
-		},
-		{
-			name:            "scenario 1 - old doesn't exist, should upload, force upload failure",
-			rmTblSchemaFile: true,
-			bucket:          testBucket,
-			object:          testObject,
-			experiment:      "jostler",
-			datatype:        "bar1",
-			dtSchemaFile:    "testdata/foo1-valid.json",
-			download:        fakeGcsDownload,
-			upload:          fakeGcsUpload,
-			wantErr:         ErrUpload,
+			bucket:          "newclient,download",
+			experiment:      testExperiment,
+			datatype:        testDatatype,
+			dtSchemaFile:    "testdata/datatypes/foo1-incompatible.json",
+			wantErr:         schema.ErrTypeMismatch,
 		},
 	}
 
+	// Use a fake GCS implementation that reads from and writes to
+	// the local filesystemi.
+	saveGCSClient := schema.GCSClient
+	schema.GCSClient = testhelper.FakeNewClient
+	defer func() {
+		schema.GCSClient = saveGCSClient
+		os.RemoveAll("testdata/autoload")
+	}()
 	for i, test := range tests {
 		if test.rmTblSchemaFile {
-			os.RemoveAll(fmt.Sprintf("testdata/%s.table.json", test.datatype))
+			os.RemoveAll(filepath.Join("testdata", test.tblSchemaFile))
 		}
-		GCSDownload = test.download
-		GCSUpload = test.upload
 		var s string
 		if test.wantErr == nil {
 			s = "should succeed"
 		} else {
 			s = "should fail"
 		}
-		t.Logf("%s>>> test %02d: %s: %v%s", ansiPurple, i, s, test.name, ansiEnd)
-		gotErr := ValidateAndUpload(test.bucket, test.experiment, test.datatype, test.dtSchemaFile)
-		t.Logf("%s>>> gotErr=%v%s", ansiPurple, gotErr, ansiEnd)
+		t.Logf("%s>>> test %02d: %s: %v%s", testhelper.ANSIPurple, i, s, test.name, testhelper.ANSIEnd)
+		gotErr := schema.ValidateAndUpload(test.bucket, test.experiment, test.datatype, test.dtSchemaFile)
+		t.Logf("%s>>> gotErr=%v%s\n\n", testhelper.ANSIPurple, gotErr, testhelper.ANSIEnd)
 		if gotErr == nil && test.wantErr == nil {
 			continue
 		}
@@ -197,54 +199,4 @@ func TestValidateAndUpload(t *testing.T) { //nolint:paralleltest,funlen
 			t.Fatalf("ValidateAndUpload() = %v, wanted %v", gotErr, test.wantErr)
 		}
 	}
-}
-
-func fakeVerbosef(format string, args ...interface{}) {
-	if format == "" {
-		return
-	}
-	pc, file, line, ok := runtime.Caller(1)
-	if !ok {
-		return
-	}
-	details := runtime.FuncForPC(pc)
-	if details == nil {
-		return
-	}
-	file = filepath.Base(file)
-	idx := strings.LastIndex(details.Name(), "/")
-	if idx == -1 {
-		idx = 0
-	} else {
-		idx++
-	}
-	a := []interface{}{file, line, details.Name()[idx:]}
-	a = append(a, args...)
-	log.Printf("%s:%v: %s(): "+format+"\n", a...)
-}
-
-func panicGcsDownload(ctx context.Context, bucket, objPath string) ([]byte, error) {
-	panic("unexpected call to gcs.Download()")
-}
-
-func panicGcsUpload(ctx context.Context, bucket, objPath string, tblSchemaJSON []byte) error {
-	panic("unexpected call to gcs.Upload()")
-}
-
-func fakeGcsDownload(ctx context.Context, bucket, objPath string) ([]byte, error) {
-	contents, err := os.ReadFile(filepath.Join("testdata", filepath.Base(objPath)))
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return nil, storage.ErrObjectNotExist
-		}
-		return nil, err //nolint:wrapcheck
-	}
-	return contents, nil
-}
-
-func fakeGcsUpload(ctx context.Context, bucket, objPath string, tblSchemaJSON []byte) error {
-	if strings.Contains(objPath, "bar1") {
-		return ErrUpload
-	}
-	return os.WriteFile(filepath.Join("testdata", filepath.Base(objPath)), tblSchemaJSON, 0o666) //nolint:wrapcheck
 }

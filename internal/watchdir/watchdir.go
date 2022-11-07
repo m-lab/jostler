@@ -83,11 +83,7 @@ var (
 
 // Verbose prints verbose messages if initialized by the caller.
 func Verbose(v func(string, ...interface{})) {
-	if v == nil {
-		verbose = func(fmt string, args ...interface{}) {}
-	} else {
-		verbose = v
-	}
+	verbose = v
 }
 
 // New returns a new instance of WatchDir.

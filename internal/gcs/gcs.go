@@ -15,15 +15,25 @@ import (
 	"cloud.google.com/go/storage"
 )
 
+type GCSClient interface {
+	Download(context.Context, string) ([]byte, error)
+	Upload(context.Context, string, []byte) error
+}
+
+type storageClient struct {
+	client       *storage.Client
+	bucket       string
+	bucketHandle *storage.BucketHandle
+}
+
 var (
-	uploadTimeout   = time.Hour // same as pusher
 	downloadTimeout = 2 * time.Minute
-	deleteTimeout   = time.Minute
+	uploadTimeout   = time.Hour // same as pusher
 
-	errReadObject   = errors.New("failed to read GCS object")
-	errWriteObject  = errors.New("failed to write GCS object")
-	errDeleteObject = errors.New("failed to delete GCS object")
+	errDownloadObject = errors.New("failed to download GCS object")
+	errUploadObject   = errors.New("failed to upload GCS object")
 
+	// Testing and debugging support.
 	verbose = func(fmt string, args ...interface{}) {}
 )
 
@@ -33,27 +43,37 @@ func Verbose(v func(string, ...interface{})) {
 	verbose = v
 }
 
-// Download downloads the specified object from GCS.
-func Download(ctx context.Context, bucket, objPath string) ([]byte, error) {
-	verbose("downloading '%v:%v'", bucket, objPath)
-	storageCtx, storageCancel := context.WithTimeout(ctx, downloadTimeout)
-	defer storageCancel()
-	client, err := storage.NewClient(storageCtx)
+// NewClient returns a new GCS client for the specified bucket.
+// The return value is an interface to facilitate testing.
+func NewClient(ctx context.Context, bucket string) (GCSClient, error) { //nolint:ireturn
+	verbose("creating new storage client for %v", bucket)
+	client, err := storage.NewClient(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create storage client: %w", err)
 	}
-	defer client.Close()
-	obj := client.Bucket(bucket).Object(objPath)
+	return &storageClient{
+		client:       client,
+		bucket:       bucket,
+		bucketHandle: client.Bucket(bucket),
+	}, nil
+}
+
+// Download downloads the specified object from GCS.
+func (s *storageClient) Download(ctx context.Context, objPath string) ([]byte, error) {
+	verbose("downloading '%v:%v'", s.bucket, objPath)
+	storageCtx, storageCancel := context.WithTimeout(ctx, downloadTimeout)
+	defer storageCancel()
+	obj := s.bucketHandle.Object(objPath)
 	reader, err := obj.NewReader(storageCtx)
 	if err != nil {
-		return nil, fmt.Errorf("'%v:%v': %w", bucket, objPath, err)
+		return nil, fmt.Errorf("'%v:%v': %w", s.bucket, objPath, err)
 	}
 	defer reader.Close()
 	contents, err := io.ReadAll(reader)
 	if err != nil {
-		return nil, fmt.Errorf("%v: %w", errReadObject, err)
+		return nil, fmt.Errorf("%v: %w", errDownloadObject, err)
 	}
-	verbose("'%v:%v' %v bytes", bucket, objPath, len(contents))
+	verbose("'%v:%v' %v bytes", s.bucket, objPath, len(contents))
 	return contents, nil
 }
 
@@ -62,46 +82,22 @@ func Download(ctx context.Context, bucket, objPath string) ([]byte, error) {
 // Methods in the storage package may retry calls that fail with transient
 // errors. Retrying continues indefinitely unless the controlling context is
 // canceled, the client is closed, or a non-transient error is received.
-func Upload(ctx context.Context, bucket, objPath string, contents []byte) error {
-	verbose("uploading '%v:%v'", bucket, objPath)
+func (s *storageClient) Upload(ctx context.Context, objPath string, contents []byte) error {
+	verbose("uploading '%v:%v'", s.bucket, objPath)
+	obj := s.bucketHandle.Object(objPath)
 	storageCtx, storageCancel := context.WithTimeout(ctx, uploadTimeout)
 	defer storageCancel()
-	client, err := storage.NewClient(storageCtx)
-	if err != nil {
-		return fmt.Errorf("failed to create storage client: %w", err)
-	}
-	defer client.Close()
-	obj := client.Bucket(bucket).Object(objPath)
 	writer := obj.NewWriter(storageCtx)
 	for written := 0; written < len(contents); {
 		n, err := fmt.Fprint(writer, string(contents[written:]))
 		if err != nil {
-			return fmt.Errorf("%v: %w", errWriteObject, err)
+			return fmt.Errorf("%v: %w", errUploadObject, err)
 		}
 		written += n
 	}
 	if err := writer.Close(); err != nil {
 		return fmt.Errorf("failed to close GCS object: %w", err)
 	}
-	verbose("successfully uploaded '%v:%v' to GCS %v bytes", bucket, objPath, len(contents))
-	return nil
-}
-
-// Delete deletes the specified object from the specified bucket.
-func Delete(ctx context.Context, bucket, objPath string) error {
-	verbose("deleting '%v:%v'", bucket, objPath)
-	storageCtx, storageCancel := context.WithTimeout(ctx, deleteTimeout)
-	defer storageCancel()
-	client, err := storage.NewClient(storageCtx)
-	if err != nil {
-		return fmt.Errorf("failed to create storage client: %w", err)
-	}
-	defer client.Close()
-
-	obj := client.Bucket(bucket).Object(objPath)
-	if err := obj.Delete(storageCtx); err != nil {
-		return fmt.Errorf("%v: %w", errDeleteObject, err)
-	}
-	verbose("successfully deleted '%v:%v'", bucket, objPath)
+	verbose("successfully uploaded '%v:%v' to GCS %v bytes", s.bucket, objPath, len(contents))
 	return nil
 }

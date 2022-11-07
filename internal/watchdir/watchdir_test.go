@@ -1,31 +1,21 @@
 // Package watchdir watches a directory and sends notifications to its
 // client when it notices a new file.
-package watchdir //nolint:testpackage //nolint:testpackage
+package watchdir //nolint:testpackage
 
 import (
 	"context"
 	"errors"
-	"log"
 	"os"
 	"path/filepath"
-	"runtime"
-	"strings"
 	"testing"
 	"time"
 
+	"github.com/m-lab/jostler/internal/testhelper"
 	"github.com/rjeczalik/notify"
 )
 
-const (
-	ansiGreen  = "\033[00;32m"
-	ansiBlue   = "\033[00;34m"
-	ansiPurple = "\033[00;35m"
-	ansiEnd    = "\033[0m"
-)
-
 func TestVerbose(t *testing.T) { //nolint:paralleltest
-	Verbose(fakeVerbosef)
-	Verbose(nil)
+	Verbose(func(fmt string, args ...interface{}) {})
 }
 
 func TestNew(t *testing.T) { //nolint:paralleltest
@@ -71,7 +61,7 @@ func TestNew(t *testing.T) { //nolint:paralleltest
 		},
 	}
 	for i, test := range tests {
-		t.Logf("%s>>> test %02d %s%s", ansiPurple, i, test.name, ansiEnd)
+		t.Logf("%s>>> test %02d %s%s", testhelper.ANSIPurple, i, test.name, testhelper.ANSIEnd)
 		var saveEventNames map[notify.Event]string
 		if test.eventNames != nil {
 			saveEventNames = eventNames
@@ -178,15 +168,15 @@ func TestWatchAndNotify(t *testing.T) { //nolint:paralleltest,funlen
 		},
 	}
 	if testing.Verbose() {
-		Verbose(fakeVerbosef)
+		Verbose(testhelper.VLogf)
+		defer Verbose(func(fmt string, args ...interface{}) {})
 	}
-	defer Verbose(nil)
 	cwd, err := os.Getwd()
 	if err != nil {
 		t.Fatalf("os.Getwd() = %v, want nil", err)
 	}
 	for i, test := range tests {
-		t.Logf("%s>>> test %02d %s%s", ansiPurple, i, test.name, ansiEnd)
+		t.Logf("%s>>> test %02d %s%s", testhelper.ANSIPurple, i, test.name, testhelper.ANSIEnd)
 		testFile := prepareFile(t, cwd, test.file, test.watchDir, test.missed, test.missedAge)
 		wd, err := New(filepath.Join(cwd, test.watchDir), test.watchExtensions, test.watchEvents, test.missedAge, test.missedInterval)
 		if err != nil {
@@ -263,25 +253,4 @@ func fileActivity(t *testing.T, wd *WatchDir, testFile string, ack bool) {
 		// Acknowledge receipt of the event.
 		wd.WatchAckChan() <- []string{testFile}
 	}
-}
-
-func fakeVerbosef(format string, args ...interface{}) {
-	pc, file, line, ok := runtime.Caller(1)
-	if !ok {
-		return
-	}
-	details := runtime.FuncForPC(pc)
-	if details == nil {
-		return
-	}
-	file = filepath.Base(file)
-	idx := strings.LastIndex(details.Name(), "/")
-	if idx == -1 {
-		idx = 0
-	} else {
-		idx++
-	}
-	a := []interface{}{file, line, details.Name()[idx:]}
-	a = append(a, args...)
-	log.Printf("%s:%v: %s(): "+format+"\n", a...)
 }
