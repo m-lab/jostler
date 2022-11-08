@@ -47,12 +47,14 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/m-lab/go/host"
 	"github.com/rjeczalik/notify"
 
 	"github.com/m-lab/jostler/internal/schema"
+	"github.com/m-lab/jostler/internal/testhelper"
 	"github.com/m-lab/jostler/internal/uploadbundle"
 	"github.com/m-lab/jostler/internal/watchdir"
 )
@@ -74,6 +76,10 @@ func main() {
 		fatal(err)
 	}
 
+	if strings.Contains(bucket, "fake") {
+		schema.GCSClient = testhelper.FakeNewClient
+		uploadbundle.GCSClient = testhelper.FakeNewClient
+	}
 	if local {
 		if err := localMode(); err != nil {
 			fatal(err)
@@ -149,13 +155,7 @@ func daemonMode() error {
 	var err error
 	select {
 	case err = <-watcherStatus:
-		if err != nil {
-			log.Printf("watcher failed: %v\n", err)
-		}
 	case err = <-uploaderStatus:
-		if err != nil {
-			log.Printf("uploader failed: %v\n", err)
-		}
 	}
 	mainCancel()
 	return err
@@ -198,7 +198,7 @@ func startUploader(mainCtx context.Context, mainCancel context.CancelFunc, statu
 		AgeMax:   bundleAgeMax,
 		NoRm:     bundleNoRm,
 	}
-	ubClient, err := uploadbundle.New(wdClient, gcsConf, bundleConf)
+	ubClient, err := uploadbundle.New(mainCtx, wdClient, gcsConf, bundleConf)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate uploader: %w", err)
 	}

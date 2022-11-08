@@ -1,3 +1,4 @@
+// Package api defines data structures of M-Lab's standard columns.
 package api
 
 // StandardColumnsV0 defines version 0 of the standard columns included
