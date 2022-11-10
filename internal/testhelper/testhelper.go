@@ -1,12 +1,13 @@
 // Package testhelper implements code that helps in unit and integration
 // testing.  The helpers in this package include verbose logging (with
-// colored details) and a fake cloud storage implementation that writes to
-// the local filesystem instead of GCS.
+// colored details) and a local disk storage implementation that mimics
+// downloads from and uploads to cloud storage (GCS).
 package testhelper
 
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -16,6 +17,7 @@ import (
 	"cloud.google.com/go/storage"
 	"github.com/m-lab/jostler/internal/gcs"
 	"github.com/m-lab/jostler/internal/schema"
+	"github.com/m-lab/jostler/internal/watchdir"
 )
 
 const (
@@ -51,30 +53,32 @@ func VLogf(format string, args ...interface{}) {
 	log.Printf("%s%s:%d: %s(): %s"+format+"%s", append(a, ANSIEnd)...)
 }
 
-// Fake downloading from and uploading to GCS.
+// diskStorageClient implements a local disk storage that mimics downloads
+// from and uploads to GCS.
 //
 // To provide strict testing, each test client should set the bucket name to
 // the operation(s) it expects that particular test to perform.  An empty
 // bucket name means no GCS operation is expected.  To force a failure,
 // the operation name should be prefixed by "fail".
-type fakeStorageClient struct {
+type diskStorageClient struct {
 	bucket string
 }
 
-// FakeNewClient creates and returns a fake storage client that will
-// read from and write to the testdata directory on local filesystem.
-func FakeNewClient(ctx context.Context, bucket string) (gcs.GCSClient, error) { //nolint:ireturn
+// DiskNewClient creates and returns a disk storage client that will
+// read from and write to the testdata directory on the local filesystem.
+func DiskNewClient(ctx context.Context, bucket string) (gcs.GCSClient, error) { //nolint:ireturn
 	if !strings.Contains(bucket, "newclient") {
 		panic("unexpected call to NewClient()")
 	}
 	if bucket == "failnewclient" {
 		return nil, schema.ErrStorageClient
 	}
-	return &fakeStorageClient{bucket: bucket}, nil
+	return &diskStorageClient{bucket: bucket}, nil
 }
 
-// Download fakes downloading from GCS.
-func (f *fakeStorageClient) Download(ctx context.Context, objPath string) ([]byte, error) {
+// Download mimics downloading from GCS.
+func (f *diskStorageClient) Download(ctx context.Context, objPath string) ([]byte, error) {
+	fmt.Printf("downloading from disk-bucket:%v\n", objPath) //nolint:forbidigo
 	if !strings.Contains(f.bucket, "download") {
 		panic("unexpected call to Download()")
 	}
@@ -92,8 +96,9 @@ func (f *fakeStorageClient) Download(ctx context.Context, objPath string) ([]byt
 	return contents, nil
 }
 
-// Upload fakes uploading to GCS.
-func (f *fakeStorageClient) Upload(ctx context.Context, objPath string, contents []byte) error {
+// Upload mimics uploading to GCS.
+func (f *diskStorageClient) Upload(ctx context.Context, objPath string, contents []byte) error {
+	fmt.Printf("uploading %d bytes to disk-bucket:%s\n", len(contents), objPath) //nolint:forbidigo
 	if !strings.Contains(f.bucket, "upload") {
 		panic("unexpected call to Upload()")
 	}
@@ -112,4 +117,30 @@ func (f *fakeStorageClient) Upload(ctx context.Context, objPath string, contents
 	}
 	file := filepath.Join("testdata", objPath)
 	return os.WriteFile(file, contents, 0o666) //nolint:wrapcheck
+}
+
+type watchDirClient struct {
+	watchDir     string
+	watchChan    chan watchdir.WatchEvent
+	watchAckChan chan []string
+}
+
+func WatchDirNew(watchDir string) (watchdir.WatchDirClient, error) { //nolint:ireturn
+	return &watchDirClient{
+		watchDir:     watchDir,
+		watchChan:    make(chan watchdir.WatchEvent, 100),
+		watchAckChan: make(chan []string, 100),
+	}, nil
+}
+
+func (w *watchDirClient) WatchChan() chan watchdir.WatchEvent {
+	return w.watchChan
+}
+
+func (w *watchDirClient) WatchAckChan() chan<- []string {
+	return w.watchAckChan
+}
+
+func (w *watchDirClient) WatchAndNotify(ctx context.Context) error {
+	return nil
 }

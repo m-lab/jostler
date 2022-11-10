@@ -5,12 +5,14 @@ package watchdir //nolint:testpackage
 import (
 	"context"
 	"errors"
+	"log"
 	"os"
 	"path/filepath"
+	"runtime"
+	"strings"
 	"testing"
 	"time"
 
-	"github.com/m-lab/jostler/internal/testhelper"
 	"github.com/rjeczalik/notify"
 )
 
@@ -61,7 +63,7 @@ func TestNew(t *testing.T) { //nolint:paralleltest
 		},
 	}
 	for i, test := range tests {
-		t.Logf("%s>>> test %02d %s%s", testhelper.ANSIPurple, i, test.name, testhelper.ANSIEnd)
+		t.Logf("%s>>> test %02d %s%s", ANSIPurple, i, test.name, ANSIEnd)
 		var saveEventNames map[notify.Event]string
 		if test.eventNames != nil {
 			saveEventNames = eventNames
@@ -168,7 +170,7 @@ func TestWatchAndNotify(t *testing.T) { //nolint:paralleltest,funlen
 		},
 	}
 	if testing.Verbose() {
-		Verbose(testhelper.VLogf)
+		Verbose(VLogf)
 		defer Verbose(func(fmt string, args ...interface{}) {})
 	}
 	cwd, err := os.Getwd()
@@ -176,7 +178,7 @@ func TestWatchAndNotify(t *testing.T) { //nolint:paralleltest,funlen
 		t.Fatalf("os.Getwd() = %v, want nil", err)
 	}
 	for i, test := range tests {
-		t.Logf("%s>>> test %02d %s%s", testhelper.ANSIPurple, i, test.name, testhelper.ANSIEnd)
+		t.Logf("%s>>> test %02d %s%s", ANSIPurple, i, test.name, ANSIEnd)
 		testFile := prepareFile(t, cwd, test.file, test.watchDir, test.missed, test.missedAge)
 		wd, err := New(filepath.Join(cwd, test.watchDir), test.watchExtensions, test.watchEvents, test.missedAge, test.missedInterval)
 		if err != nil {
@@ -230,7 +232,7 @@ func prepareFile(t *testing.T, cwd, file, watchDir string, missed bool, missedAg
 	return testFile
 }
 
-func fileActivity(t *testing.T, wd *WatchDir, testFile string, ack bool) {
+func fileActivity(t *testing.T, wd WatchDirClient, testFile string, ack bool) {
 	t.Helper()
 	if testFile != "" {
 		if err := os.WriteFile(testFile, []byte{}, 0o666); err != nil {
@@ -253,4 +255,37 @@ func fileActivity(t *testing.T, wd *WatchDir, testFile string, ack bool) {
 		// Acknowledge receipt of the event.
 		wd.WatchAckChan() <- []string{testFile}
 	}
+}
+
+const (
+	ANSIGreen  = "\033[00;32m"
+	ANSIBlue   = "\033[00;34m"
+	ANSIPurple = "\033[00;35m"
+	ANSIEnd    = "\033[0m"
+)
+
+// VLogf logs messages in verbose mode (mostly for debugging).  Messages
+// are prefixed by "filename:line-number function()" printed in green and
+// the message printed in blue for easier visual inspection.
+func VLogf(format string, args ...interface{}) {
+	pc, file, line, ok := runtime.Caller(1)
+	if !ok {
+		log.Printf(format, args...)
+		return
+	}
+	details := runtime.FuncForPC(pc)
+	if details == nil {
+		log.Printf(format, args...)
+		return
+	}
+	file = filepath.Base(file)
+	idx := strings.LastIndex(details.Name(), "/")
+	if idx == -1 {
+		idx = 0
+	} else {
+		idx++
+	}
+	a := []interface{}{ANSIGreen, file, line, details.Name()[idx:], ANSIBlue}
+	a = append(a, args...)
+	log.Printf("%s%s:%d: %s(): %s"+format+"%s", append(a, ANSIEnd)...)
 }

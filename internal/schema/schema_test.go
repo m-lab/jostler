@@ -21,8 +21,9 @@ func TestVerbose(t *testing.T) { //nolint:paralleltest
 }
 
 func TestPathForDatatype(t *testing.T) { //nolint:paralleltest
-	// Since PathForDatatype() should not download from or upload
-	// to GCS, set bucket to "" to force a panic in fake GCS.
+	// Since PathForDatatype() should not download from or upload to
+	// GCS, set bucket to "" to force a panic in the local disk storage
+	// implementation.
 	tests := []struct {
 		bucket        string
 		datatype      string
@@ -30,13 +31,13 @@ func TestPathForDatatype(t *testing.T) { //nolint:paralleltest
 		want          string
 	}{
 		{
-			bucket:        "fake-bucket",
+			bucket:        "disk-bucket",
 			datatype:      testDatatype,
 			dtSchemaFiles: []string{"foo1:/path/to/foo1.json", "bar1:/path/to/bar1.json"},
 			want:          "/path/to/foo1.json",
 		},
 		{
-			bucket:        "fake-bucket",
+			bucket:        "disk-bucket",
 			datatype:      "baz1",
 			dtSchemaFiles: []string{"foo1:/path/to/foo1.json", "bar1:/path/to/bar1.json"},
 			want:          "/var/spool/datatypes/baz1.json",
@@ -71,7 +72,7 @@ func TestValidateAndUpload(t *testing.T) { //nolint:paralleltest,funlen
 			name:            "non-existent datatype schema file, should not upload",
 			tblSchemaFile:   "autoload/v0/tables/jostler/foo1.table.json",
 			rmTblSchemaFile: false,
-			bucket:          "fake-bucket",
+			bucket:          "disk-bucket",
 			experiment:      testExperiment,
 			datatype:        testDatatype,
 			dtSchemaFile:    "testdata/datatypes/non-existent.json", // this file doesn't exist
@@ -81,7 +82,7 @@ func TestValidateAndUpload(t *testing.T) { //nolint:paralleltest,funlen
 			name:            "invalid datatype schema file, should not upload",
 			tblSchemaFile:   "autoload/v0/tables/jostler/foo1.table.json",
 			rmTblSchemaFile: false,
-			bucket:          "fake-bucket",
+			bucket:          "disk-bucket",
 			experiment:      testExperiment,
 			datatype:        testDatatype,
 			dtSchemaFile:    "testdata/datatypes/foo1-invalid.json", // this file doesn't exist
@@ -169,10 +170,10 @@ func TestValidateAndUpload(t *testing.T) { //nolint:paralleltest,funlen
 		},
 	}
 
-	// Use a fake GCS implementation that reads from and writes to
-	// the local filesystemi.
+	// Use a local disk storage implementation that mimics downloads
+	// from and uploads to GCS.
 	saveGCSClient := schema.GCSClient
-	schema.GCSClient = testhelper.FakeNewClient
+	schema.GCSClient = testhelper.DiskNewClient
 	defer func() {
 		schema.GCSClient = saveGCSClient
 		os.RemoveAll("testdata/autoload")

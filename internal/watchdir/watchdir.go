@@ -16,6 +16,13 @@ import (
 	"github.com/rjeczalik/notify"
 )
 
+// WatchDirClient defines the interface of a directory watcher.
+type WatchDirClient interface {
+	WatchChan() chan WatchEvent
+	WatchAckChan() chan<- []string
+	WatchAndNotify(context.Context) error
+}
+
 // WatchEvent is the message that is passed through the watch channel.
 type WatchEvent struct {
 	Path   string // file pathname
@@ -87,7 +94,7 @@ func Verbose(v func(string, ...interface{})) {
 }
 
 // New returns a new instance of WatchDir.
-func New(watchDir string, watchExtensions []string, watchEvents []notify.Event, missedAge, missedInterval time.Duration) (*WatchDir, error) {
+func New(watchDir string, watchExtensions []string, watchEvents []notify.Event, missedAge, missedInterval time.Duration) (WatchDirClient, error) { //nolint:ireturn
 	// Validate watchEvents.
 	if len(watchEvents) > 0 {
 		for _, e := range watchEvents {
@@ -117,7 +124,7 @@ func New(watchDir string, watchExtensions []string, watchEvents []notify.Event, 
 
 // WatchChan returns the channel through which watch events (paths)
 // are sent to the client.
-func (wd *WatchDir) WatchChan() <-chan WatchEvent {
+func (wd *WatchDir) WatchChan() chan WatchEvent {
 	return wd.watchChan
 }
 

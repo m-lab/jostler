@@ -47,7 +47,6 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/m-lab/go/host"
@@ -76,9 +75,11 @@ func main() {
 		fatal(err)
 	}
 
-	if strings.Contains(bucket, "fake") {
-		schema.GCSClient = testhelper.FakeNewClient
-		uploadbundle.GCSClient = testhelper.FakeNewClient
+	// The noGCS flag is meant for e2e testing where we want to read
+	// from and write to the local (disk) instead of cloud storageGCS.
+	if noGCS {
+		schema.GCSClient = testhelper.DiskNewClient
+		uploadbundle.GCSClient = testhelper.DiskNewClient
 	}
 	if local {
 		if err := localMode(); err != nil {
@@ -164,14 +165,14 @@ func daemonMode() error {
 // startWatcher starts a directory watcher goroutine that watches the
 // specified directory and notifies its client of new (and potentially
 // missed) files.
-func startWatcher(mainCtx context.Context, mainCancel context.CancelFunc, status chan<- error, datatype string, watchEvents []notify.Event) (*watchdir.WatchDir, error) {
+func startWatcher(mainCtx context.Context, mainCancel context.CancelFunc, status chan<- error, datatype string, watchEvents []notify.Event) (watchdir.WatchDirClient, error) { //nolint:ireturn
 	watchDir := filepath.Join(dataHomeDir, experiment, datatype)
 	wdClient, err := watchdir.New(watchDir, extensions, watchEvents, missedAge, missedInterval)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate watcher: %w", err)
 	}
 
-	go func(wdClient *watchdir.WatchDir, status chan<- error) {
+	go func(wdClient watchdir.WatchDirClient, status chan<- error) {
 		defer mainCancel()
 		status <- wdClient.WatchAndNotify(mainCtx)
 	}(wdClient, status)
@@ -180,7 +181,7 @@ func startWatcher(mainCtx context.Context, mainCancel context.CancelFunc, status
 
 // startUploader start a bundle uploader goroutine that bundles
 // individual JSON files into JSONL bundle and uploads it to GCS.
-func startUploader(mainCtx context.Context, mainCancel context.CancelFunc, status chan<- error, datatype string, wdClient *watchdir.WatchDir) (*uploadbundle.UploadBundle, error) {
+func startUploader(mainCtx context.Context, mainCancel context.CancelFunc, status chan<- error, datatype string, wdClient watchdir.WatchDirClient) (*uploadbundle.UploadBundle, error) {
 	nameParts, err := host.Parse(mlabNodeName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse hostname: %w", err)
