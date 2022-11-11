@@ -6,6 +6,7 @@ before_install:
 - go get github.com/mattn/goveralls
 # Install dependencies, including test dependencies.
 - sudo apt-get update
+- go get -u cloud.google.com/go/bigquery@v1.43.0
 - go get -v -t ./...
 
 script:
