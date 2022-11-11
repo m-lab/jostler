@@ -10,7 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/m-lab/jostler/internal/testhelper"
 	"github.com/rjeczalik/notify"
 )
 
@@ -21,7 +20,6 @@ func TestVerbose(t *testing.T) { //nolint:paralleltest
 func TestNew(t *testing.T) { //nolint:paralleltest
 	tests := []struct {
 		name            string
-		eventNames      map[notify.Event]string
 		watchDir        string
 		watchExtensions []string
 		watchEvents     []notify.Event
@@ -31,7 +29,6 @@ func TestNew(t *testing.T) { //nolint:paralleltest
 	}{
 		{
 			name:            "nil watchEvents",
-			eventNames:      nil,
 			watchDir:        "/some/path",
 			watchExtensions: []string{".json"},
 			watchEvents:     nil,
@@ -41,7 +38,6 @@ func TestNew(t *testing.T) { //nolint:paralleltest
 		},
 		{
 			name:            "specific watchEvents",
-			eventNames:      nil,
 			watchDir:        "/some/path",
 			watchExtensions: []string{".json"},
 			watchEvents:     []notify.Event{notify.InCloseWrite, notify.InMovedTo},
@@ -49,30 +45,12 @@ func TestNew(t *testing.T) { //nolint:paralleltest
 			missedInterval:  30 * time.Minute,
 			wantErr:         nil,
 		},
-		{
-			name:            "unrecognized watchEvent",
-			eventNames:      map[notify.Event]string{notify.InAccess: "File was accessed"},
-			watchDir:        "/some/path",
-			watchExtensions: []string{".json"},
-			watchEvents:     []notify.Event{notify.InCloseWrite, notify.InMovedTo},
-			missedAge:       3 * time.Hour,
-			missedInterval:  30 * time.Minute,
-			wantErr:         errUnrecognizedEvent,
-		},
 	}
 	for i, test := range tests {
-		t.Logf("%s>>> test %02d %s%s", testhelper.ANSIPurple, i, test.name, testhelper.ANSIEnd)
-		var saveEventNames map[notify.Event]string
-		if test.eventNames != nil {
-			saveEventNames = eventNames
-			eventNames = test.eventNames
-		}
+		t.Logf(">>> test %02d %s", i, test.name)
 		_, err := New(test.watchDir, test.watchExtensions, test.watchEvents, test.missedAge, test.missedInterval)
 		if !errors.Is(err, test.wantErr) {
 			t.Fatalf("New() = %v, want: %v", err, test.wantErr)
-		}
-		if test.eventNames != nil {
-			eventNames = saveEventNames
 		}
 	}
 }
@@ -84,7 +62,6 @@ func TestWatchAndNotify(t *testing.T) { //nolint:paralleltest,funlen
 	}()
 	tests := []struct {
 		name            string
-		eventNames      map[notify.Event]string
 		file            string
 		missed          bool
 		ack             bool
@@ -96,7 +73,6 @@ func TestWatchAndNotify(t *testing.T) { //nolint:paralleltest,funlen
 	}{
 		{
 			name:            "no file creation",
-			eventNames:      nil,
 			file:            "",
 			missed:          false,
 			ack:             false,
@@ -108,7 +84,6 @@ func TestWatchAndNotify(t *testing.T) { //nolint:paralleltest,funlen
 		},
 		{
 			name:            "new t.txt",
-			eventNames:      nil,
 			file:            "t.txt",
 			missed:          false,
 			ack:             false,
@@ -120,7 +95,6 @@ func TestWatchAndNotify(t *testing.T) { //nolint:paralleltest,funlen
 		},
 		{
 			name:            "new j.json, acknowledge",
-			eventNames:      nil,
 			file:            "j.json",
 			missed:          false,
 			ack:             true,
@@ -132,7 +106,6 @@ func TestWatchAndNotify(t *testing.T) { //nolint:paralleltest,funlen
 		},
 		{
 			name:            "new j.json, do not acknowledge",
-			eventNames:      nil,
 			file:            "j.json",
 			missed:          false,
 			ack:             false,
@@ -144,7 +117,6 @@ func TestWatchAndNotify(t *testing.T) { //nolint:paralleltest,funlen
 		},
 		{
 			name:            "unrecognized event",
-			eventNames:      map[notify.Event]string{notify.InAccess: "File was accessed"},
 			file:            "j.json",
 			missed:          false,
 			ack:             false,
@@ -156,7 +128,6 @@ func TestWatchAndNotify(t *testing.T) { //nolint:paralleltest,funlen
 		},
 		{
 			name:            "missed j.json",
-			eventNames:      nil,
 			file:            "j.json",
 			missed:          true,
 			ack:             true,
@@ -167,28 +138,18 @@ func TestWatchAndNotify(t *testing.T) { //nolint:paralleltest,funlen
 			missedInterval:  1 * time.Second,
 		},
 	}
-	if testing.Verbose() {
-		Verbose(testhelper.VLogf)
-		defer Verbose(func(fmt string, args ...interface{}) {})
-	}
 	cwd, err := os.Getwd()
 	if err != nil {
 		t.Fatalf("os.Getwd() = %v, want nil", err)
 	}
 	for i, test := range tests {
-		t.Logf("%s>>> test %02d %s%s", testhelper.ANSIPurple, i, test.name, testhelper.ANSIEnd)
+		t.Logf(">>> test %02d %s", i, test.name)
 		testFile := prepareFile(t, cwd, test.file, test.watchDir, test.missed, test.missedAge)
 		wd, err := New(filepath.Join(cwd, test.watchDir), test.watchExtensions, test.watchEvents, test.missedAge, test.missedInterval)
 		if err != nil {
 			t.Fatalf("New() = %v, want: nil", err)
 		}
 
-		// Changing eventNames must be done after the call to New().
-		var saveEventNames map[notify.Event]string
-		if test.eventNames != nil {
-			saveEventNames = eventNames
-			eventNames = test.eventNames
-		}
 		ctx, cancel := context.WithCancel(context.Background())
 		go func() {
 			_ = wd.WatchAndNotify(ctx)
@@ -201,9 +162,6 @@ func TestWatchAndNotify(t *testing.T) { //nolint:paralleltest,funlen
 		t.Logf(">>> waiting 2 seconds before canceling ctx")
 		<-time.After(2 * time.Second)
 		cancel()
-		if test.eventNames != nil {
-			eventNames = saveEventNames
-		}
 		// Wait a little before starting the next iteration.
 		time.Sleep(1 * time.Second)
 	}
