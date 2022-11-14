@@ -146,7 +146,6 @@ func (wd *WatchDir) WatchAndNotify(ctx context.Context) error {
 		case <-ctx.Done():
 			verbose("'watch and notify' context canceled for %v", wd.watchDir)
 			done = true
-			close(wd.watchChan)
 		case ei, chOpen := <-eiChan:
 			if !chOpen {
 				verbose("event info channel closed")
