@@ -186,10 +186,12 @@ func startUploader(mainCtx context.Context, mainCancel context.CancelFunc, statu
 		BaseID:  fmt.Sprintf("%s-%s-%s-%s", datatype, nameParts.Machine, nameParts.Site, experiment),
 	}
 	bundleConf := uploadbundle.BundleConfig{
-		Datatype: datatype,
-		DataDir:  filepath.Join(dataHomeDir, experiment, datatype),
-		SizeMax:  bundleSizeMax,
-		AgeMax:   bundleAgeMax,
+		Version:   version,
+		GitCommit: gitCommit,
+		Datatype:  datatype,
+		DataDir:   filepath.Join(dataHomeDir, experiment, datatype),
+		SizeMax:   bundleSizeMax,
+		AgeMax:    bundleAgeMax,
 	}
 	ubClient, err := uploadbundle.New(mainCtx, wdClient, gcsConf, bundleConf)
 	if err != nil {

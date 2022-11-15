@@ -37,6 +37,8 @@ var (
 	missedInterval time.Duration
 
 	// Flags related to program's execution.
+	version      string
+	gitCommit    string
 	local        bool
 	verbose      bool
 	testInterval time.Duration
@@ -73,6 +75,8 @@ func initFlags() {
 	flag.DurationVar(&missedInterval, "missed-interval", 30*time.Minute, "time interval between scans of filesystem for missed files")
 
 	// Flags related to program's execution.
+	flag.StringVar(&version, "versiondir", "", "version of this program, usually its release tag (e.g., v0.1.7)")
+	flag.StringVar(&gitCommit, "git-commit", "", "git commit SHA1 of this program, usually its HEAD commit SHA1")
 	flag.BoolVar(&local, "local", false, "run locally and create schema files for each datatype")
 	flag.BoolVar(&verbose, "verbose", false, "enable verbose mode")
 	flag.DurationVar(&testInterval, "test-interval", 0, "time interval to stop running (for test purposes only)")

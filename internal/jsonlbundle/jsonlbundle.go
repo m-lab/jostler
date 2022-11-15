@@ -50,7 +50,7 @@ func New(bucket, gcsDataDir, gcsBaseID, datatype, dateSubdir string) *JSONLBundl
 	objName := fmt.Sprintf("%s-%s", nowUTC.Format("20060102T150405.000000Z"), gcsBaseID)
 	return &JSONLBundle{
 		Lines:      []string{},
-		Timestamp:  time.Now().UTC().Format("2006/01/02T150405.000000Z"),
+		Timestamp:  nowUTC.Format("2006/01/02T150405.000000Z"),
 		Datatype:   datatype,
 		DateSubdir: dateSubdir,
 		bucket:     bucket,
@@ -80,7 +80,7 @@ func (jb *JSONLBundle) HasFile(fullPath string) bool {
 }
 
 // AddFile adds the specified file to the bundle.
-func (jb *JSONLBundle) AddFile(fullPath string) error {
+func (jb *JSONLBundle) AddFile(fullPath, version, gitCommit string) error {
 	contents, err := readJSONFile(fullPath)
 	if err != nil {
 		jb.BadFiles = append(jb.BadFiles, fullPath)
@@ -89,8 +89,8 @@ func (jb *JSONLBundle) AddFile(fullPath string) error {
 	stdCols := api.StandardColumnsV0{
 		Date: jb.DateSubdir,
 		Archiver: api.ArchiverV0{
-			Version:    "jostler@0.1.7",
-			GitCommit:  "3ac4528",
+			Version:    version,
+			GitCommit:  gitCommit,
 			ArchiveURL: fmt.Sprintf("gs://%s/%s/%s", jb.bucket, jb.ObjDir, jb.ObjName),
 			Filename:   fullPath,
 		},
@@ -100,16 +100,17 @@ func (jb *JSONLBundle) AddFile(fullPath string) error {
 	if err != nil {
 		log.Panicf("failed to marshal standard columns: %v", err)
 	}
-	line := fmt.Sprintf("%s,\"raw\":%s}", strings.TrimSuffix(string(stdColsBytes), "}"), contents)
+	line := strings.Replace(string(stdColsBytes), `"Raw":""`, `"Raw":`+contents, 1)
 	jb.Lines = append(jb.Lines, line)
 	jb.FullPaths = append(jb.FullPaths, fullPath)
-	jb.Size += uint(len(contents))
+	jb.Size += uint(len(line))
 	verbose("added %v to %v", fullPath, jb.Description())
 	return nil
 }
 
 // RemoveLocalFiles removes files on the local filesystem that were
-// successfully uploaded via this bundle.
+// successfully uploaded via this bundle.  If a file cannot be removed,
+// an error message is logged but no further action is taken.
 func (jb *JSONLBundle) RemoveLocalFiles() {
 	for _, fullPath := range append(jb.FullPaths, jb.BadFiles...) {
 		verbose("removing %v", fullPath)

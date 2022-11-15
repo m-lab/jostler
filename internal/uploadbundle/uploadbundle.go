@@ -68,10 +68,12 @@ type GCSConfig struct {
 
 // BundleConfig defines bundle configuration options.
 type BundleConfig struct {
-	Datatype string        // datatype (e.g., scamper1)
-	DataDir  string        // path to datatype subdirectory on local disk (e.g., /var/spool/<experiment>/<datatype>)
-	SizeMax  uint          // bundle will be uploaded when it reaches this size
-	AgeMax   time.Duration // bundle will be uploaded when it reaches this age
+	Version   string        // version of this program producing the bundle (e.g., v0.1.7)
+	GitCommit string        // git commit SHA1 of this program (e.g., 2abe77f)
+	Datatype  string        // datatype (e.g., scamper1)
+	DataDir   string        // path to datatype subdirectory on local disk (e.g., /var/spool/<experiment>/<datatype>)
+	SizeMax   uint          // bundle will be uploaded when it reaches this size
+	AgeMax    time.Duration // bundle will be uploaded when it reaches this age
 }
 
 var (
@@ -192,7 +194,7 @@ func (ub *UploadBundle) bundleFile(ctx context.Context, fullPath string) {
 		jb = ub.newJSONLBundle(dateSubdir)
 	}
 	// Add the contents of this file to the bundle.
-	if err := jb.AddFile(fullPath); err != nil {
+	if err := jb.AddFile(fullPath, ub.bundleConf.Version, ub.bundleConf.GitCommit); err != nil {
 		log.Printf("ERROR: failed to add file to active bundle: %v\n", err)
 	} else {
 		verbose("active %v has %v bytes", jb.Description(), jb.Size)
