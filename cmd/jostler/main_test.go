@@ -16,7 +16,7 @@ import (
 const (
 	testNode        = "mlab1-lga01.mlab-sandbox.measurement-lab.org"
 	testDataHomeDir = "testdata"    // typically /var/spool
-	testBucket      = "fake-bucket" // typically pusher-mlab-sandbox
+	testBucket      = "disk-bucket" // typically pusher-mlab-sandbox
 	testExperiment  = "jostler"
 	testDatatype    = "foo1"
 )
@@ -176,10 +176,10 @@ func TestCLI(t *testing.T) { //nolint:funlen,paralleltest
 			},
 		},
 	}
-	// Use a fake GCS implementation that reads from and writes to
-	// the local filesystemi.
+	// Use a local disk storage implementation that mimics downloads
+	// from and uploads to GCS.
 	saveGCSClient := schema.GCSClient
-	schema.GCSClient = testhelper.FakeNewClient
+	schema.GCSClient = testhelper.DiskClient
 	defer func() {
 		schema.GCSClient = saveGCSClient
 		os.RemoveAll("foo1.json")

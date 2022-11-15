@@ -1,12 +1,13 @@
 // Package testhelper implements code that helps in unit and integration
 // testing.  The helpers in this package include verbose logging (with
-// colored details) and a fake cloud storage implementation that writes to
-// the local filesystem instead of GCS.
+// colored details) and a local disk storage implementation that mimics
+// downloads from and uploads to cloud storage (GCS).
 package testhelper
 
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -16,6 +17,7 @@ import (
 	"cloud.google.com/go/storage"
 	"github.com/m-lab/jostler/internal/gcs"
 	"github.com/m-lab/jostler/internal/schema"
+	"github.com/m-lab/jostler/internal/watchdir"
 )
 
 const (
@@ -51,30 +53,32 @@ func VLogf(format string, args ...interface{}) {
 	log.Printf("%s%s:%d: %s(): %s"+format+"%s", append(a, ANSIEnd)...)
 }
 
-// Fake downloading from and uploading to GCS.
+// diskStorage implements a local disk storage that mimics downloads
+// from and uploads to cloud storage (GCS) performed by the gcs package.
 //
 // To provide strict testing, each test client should set the bucket name to
 // the operation(s) it expects that particular test to perform.  An empty
 // bucket name means no GCS operation is expected.  To force a failure,
 // the operation name should be prefixed by "fail".
-type fakeStorageClient struct {
+type diskStorage struct {
 	bucket string
 }
 
-// FakeNewClient creates and returns a fake storage client that will
-// read from and write to the testdata directory on local filesystem.
-func FakeNewClient(ctx context.Context, bucket string) (gcs.GCSClient, error) { //nolint:ireturn
+// DiskClient creates and returns a disk storage client that will
+// read from and write to the testdata directory on the local filesystem.
+func DiskClient(ctx context.Context, bucket string) (gcs.GCSClient, error) { //nolint:ireturn
 	if !strings.Contains(bucket, "newclient") {
 		panic("unexpected call to NewClient()")
 	}
 	if bucket == "failnewclient" {
 		return nil, schema.ErrStorageClient
 	}
-	return &fakeStorageClient{bucket: bucket}, nil
+	return &diskStorage{bucket: bucket}, nil
 }
 
-// Download fakes downloading from GCS.
-func (f *fakeStorageClient) Download(ctx context.Context, objPath string) ([]byte, error) {
+// Download mimics downloading from GCS.
+func (f *diskStorage) Download(ctx context.Context, objPath string) ([]byte, error) {
+	fmt.Printf("downloading from disk-bucket:%v\n", objPath) //nolint:forbidigo
 	if !strings.Contains(f.bucket, "download") {
 		panic("unexpected call to Download()")
 	}
@@ -92,8 +96,9 @@ func (f *fakeStorageClient) Download(ctx context.Context, objPath string) ([]byt
 	return contents, nil
 }
 
-// Upload fakes uploading to GCS.
-func (f *fakeStorageClient) Upload(ctx context.Context, objPath string, contents []byte) error {
+// Upload mimics uploading to GCS.
+func (f *diskStorage) Upload(ctx context.Context, objPath string, contents []byte) error {
+	fmt.Printf("uploading %d bytes to disk-bucket:%s\n", len(contents), objPath) //nolint:forbidigo
 	if !strings.Contains(f.bucket, "upload") {
 		panic("unexpected call to Upload()")
 	}
@@ -112,4 +117,41 @@ func (f *fakeStorageClient) Upload(ctx context.Context, objPath string, contents
 	}
 	file := filepath.Join("testdata", objPath)
 	return os.WriteFile(file, contents, 0o666) //nolint:wrapcheck
+}
+
+// WatchDir implements a directory watcher that mimics the watchdir
+// package.
+type WatchDir struct {
+	watchDir     string
+	watchChan    chan watchdir.WatchEvent
+	watchAckChan chan []string
+}
+
+// WatchDirNew creates a new instance of WatchDir and returns it.
+func WatchDirNew(watchDir string) (*WatchDir, error) {
+	return &WatchDir{
+		watchDir:     watchDir,
+		watchChan:    make(chan watchdir.WatchEvent, 100),
+		watchAckChan: make(chan []string, 100),
+	}, nil
+}
+
+// WatchChan returns the channel through which watch events (paths)
+// are sent to the client.
+func (w *WatchDir) WatchChan() chan watchdir.WatchEvent {
+	return w.watchChan
+}
+
+// WatchAckChan returns the channel through which client acknowledges
+// the watch events it has received and processed, so watchdir can remove
+// them from its notifiedFiles map.
+func (w *WatchDir) WatchAckChan() chan<- []string {
+	return w.watchAckChan
+}
+
+// WatchAndNotify watches a directory (and possibly all its subdirectories)
+// for the configured events and sends the pathnames of the events it received
+// through the configured channel.
+func (w *WatchDir) WatchAndNotify(ctx context.Context) error {
+	return nil
 }

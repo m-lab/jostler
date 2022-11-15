@@ -27,7 +27,6 @@ var (
 	dtSchemaFiles flagx.StringArray
 	bundleSizeMax uint
 	bundleAgeMax  time.Duration
-	bundleNoRm    bool
 
 	// Flags related to where to watch for data (inotify events).
 	dataHomeDir    string
@@ -64,7 +63,6 @@ func initFlags() {
 	dtSchemaFiles = flagx.StringArray{}
 	flag.UintVar(&bundleSizeMax, "bundle-size-max", 20*1024*1024, "maximum bundle size in bytes before it is uploaded")
 	flag.DurationVar(&bundleAgeMax, "bundle-age-max", 1*time.Hour, "maximum bundle age before it is uploaded")
-	flag.BoolVar(&bundleNoRm, "no-rm", false, "do not remove files of a bundle after successful upload") // XXX debugging support - delete when done
 
 	// Flags related to where to watch for data (inotify events).
 	flag.StringVar(&dataHomeDir, "data-home-dir", "/var/spool", "directory pathname under which measurement data is created")

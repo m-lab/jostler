@@ -149,13 +149,7 @@ func daemonMode() error {
 	var err error
 	select {
 	case err = <-watcherStatus:
-		if err != nil {
-			log.Printf("watcher failed: %v\n", err)
-		}
 	case err = <-uploaderStatus:
-		if err != nil {
-			log.Printf("uploader failed: %v\n", err)
-		}
 	}
 	mainCancel()
 	return err
@@ -196,9 +190,8 @@ func startUploader(mainCtx context.Context, mainCancel context.CancelFunc, statu
 		DataDir:  filepath.Join(dataHomeDir, experiment, datatype),
 		SizeMax:  bundleSizeMax,
 		AgeMax:   bundleAgeMax,
-		NoRm:     bundleNoRm,
 	}
-	ubClient, err := uploadbundle.New(wdClient, gcsConf, bundleConf)
+	ubClient, err := uploadbundle.New(mainCtx, wdClient, gcsConf, bundleConf)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate uploader: %w", err)
 	}
