@@ -79,7 +79,8 @@ func (jb *JSONLBundle) HasFile(fullPath string) bool {
 	return false
 }
 
-// AddFile adds the specified file to the bundle.
+// AddFile adds the specified measurement data file in JSON format to
+// the bundle by embedding it in the Raw field of M-Lab's standard columns.
 func (jb *JSONLBundle) AddFile(fullPath, version, gitCommit string) error {
 	contents, err := readJSONFile(fullPath)
 	if err != nil {
@@ -94,12 +95,13 @@ func (jb *JSONLBundle) AddFile(fullPath, version, gitCommit string) error {
 			ArchiveURL: fmt.Sprintf("gs://%s/%s/%s", jb.bucket, jb.ObjDir, jb.ObjName),
 			Filename:   fullPath,
 		},
-		Raw: "",
+		Raw: "", // placeholder for measurement data
 	}
 	stdColsBytes, err := json.Marshal(stdCols)
 	if err != nil {
 		log.Panicf("failed to marshal standard columns: %v", err)
 	}
+	// Replace the placeholder Raw with the actual measurement data.
 	line := strings.Replace(string(stdColsBytes), `"Raw":""`, `"Raw":`+contents, 1)
 	jb.Lines = append(jb.Lines, line)
 	jb.FullPaths = append(jb.FullPaths, fullPath)
