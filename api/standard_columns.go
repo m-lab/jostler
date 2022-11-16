@@ -2,6 +2,11 @@ package api
 
 // StandardColumnsV0 defines version 0 of the standard columns included
 // in every line (row) along with the raw data from the measurement service.
+//
+// Note that the Raw field is a placeholder for the actual measurement
+// data in JSON format produced by the measurement service.  Ideally, its
+// type should be declared as "any" but bigquery.InferSchema() does not
+// support "any" (or "interface{}").
 type StandardColumnsV0 struct {
 	Date     string     `bigquery:"date"`     // yyyy-mm-dd pathname component of measurement data
 	Archiver ArchiverV0 `bigquery:"archiver"` // archiver details

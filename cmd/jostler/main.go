@@ -58,6 +58,9 @@ import (
 )
 
 var (
+	version   string // set at build time from git describe --tags
+	gitCommit string // set at build time from git log -1 --format=%h
+
 	errWrite = errors.New("failed to write file")
 
 	// Test code changes Fatal to Panic so a fatal error won't exit
@@ -149,13 +152,7 @@ func daemonMode() error {
 	var err error
 	select {
 	case err = <-watcherStatus:
-		if err != nil {
-			log.Printf("watcher failed: %v\n", err)
-		}
 	case err = <-uploaderStatus:
-		if err != nil {
-			log.Printf("uploader failed: %v\n", err)
-		}
 	}
 	mainCancel()
 	return err
@@ -192,13 +189,14 @@ func startUploader(mainCtx context.Context, mainCancel context.CancelFunc, statu
 		BaseID:  fmt.Sprintf("%s-%s-%s-%s", datatype, nameParts.Machine, nameParts.Site, experiment),
 	}
 	bundleConf := uploadbundle.BundleConfig{
-		Datatype: datatype,
-		DataDir:  filepath.Join(dataHomeDir, experiment, datatype),
-		SizeMax:  bundleSizeMax,
-		AgeMax:   bundleAgeMax,
-		NoRm:     bundleNoRm,
+		Version:   version,
+		GitCommit: gitCommit,
+		Datatype:  datatype,
+		DataDir:   filepath.Join(dataHomeDir, experiment, datatype),
+		SizeMax:   bundleSizeMax,
+		AgeMax:    bundleAgeMax,
 	}
-	ubClient, err := uploadbundle.New(wdClient, gcsConf, bundleConf)
+	ubClient, err := uploadbundle.New(mainCtx, wdClient, gcsConf, bundleConf)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate uploader: %w", err)
 	}

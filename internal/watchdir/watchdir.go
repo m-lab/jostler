@@ -60,24 +60,11 @@ var (
 		notify.InDeleteSelf,
 		notify.InMoveSelf,
 	}
-	eventNames = map[notify.Event]string{
-		notify.InAccess:       "File was accessed",
-		notify.InModify:       "File was modified",
-		notify.InAttrib:       "Metadata changed",
-		notify.InCloseWrite:   "Writable file was closed",
-		notify.InCloseNowrite: "Unwrittable file closed",
-		notify.InOpen:         "File was opened",
-		notify.InMovedFrom:    "File was moved from X",
-		notify.InMovedTo:      "File was moved to Y",
-		notify.InCreate:       "Subfile was created",
-		notify.InDelete:       "Subfile was deleted",
-		notify.InDeleteSelf:   "Self was deleted",
-		notify.InMoveSelf:     "Self was moved",
-	}
 
 	errUnrecognizedEvent = errors.New("unrecognized event")
 	errNotifyWatch       = errors.New("failed to start notify.Watch")
 
+	// Testing and debugging support.
 	verbose = func(fmt string, args ...interface{}) {}
 )
 
@@ -88,15 +75,14 @@ func Verbose(v func(string, ...interface{})) {
 
 // New returns a new instance of WatchDir.
 func New(watchDir string, watchExtensions []string, watchEvents []notify.Event, missedAge, missedInterval time.Duration) (*WatchDir, error) {
-	// Validate watchEvents.
-	if len(watchEvents) > 0 {
-		for _, e := range watchEvents {
-			if _, ok := eventNames[e]; !ok {
-				return nil, fmt.Errorf("%v: %w", e, errUnrecognizedEvent)
-			}
-		}
-	} else {
+	// If watchEvents is empty, it means all watch events; otherwise,
+	// it's a list of specific watch events and we should validate it.
+	if len(watchEvents) == 0 {
 		watchEvents = AllWatchEvents
+	} else {
+		if err := validateWatchEvents(watchEvents); err != nil {
+			return nil, err
+		}
 	}
 	wd := &WatchDir{
 		watchDir:          filepath.Clean(watchDir),
@@ -117,7 +103,7 @@ func New(watchDir string, watchExtensions []string, watchEvents []notify.Event, 
 
 // WatchChan returns the channel through which watch events (paths)
 // are sent to the client.
-func (wd *WatchDir) WatchChan() <-chan WatchEvent {
+func (wd *WatchDir) WatchChan() chan WatchEvent {
 	return wd.watchChan
 }
 
@@ -152,8 +138,8 @@ func (wd *WatchDir) WatchAndNotify(ctx context.Context) error {
 				done = true
 				break
 			}
-			if _, ok := eventNames[ei.Event()]; !ok {
-				log.Printf("WARNING: ignoring unknown event %v for %v\n", ei, ei.Path())
+			if err := validateWatchEvents([]notify.Event{ei.Event()}); err != nil {
+				log.Printf("WARNING: ignoring unrecognized event %v for %v\n", ei, ei.Path())
 				continue
 			}
 			if !wd.validPath(ei.Path(), nil) {
@@ -168,6 +154,24 @@ func (wd *WatchDir) WatchAndNotify(ctx context.Context) error {
 				break
 			}
 			wd.ackNotifications(fullPaths)
+		}
+	}
+	return nil
+}
+
+// validateWatchEvents validates that all watch events in the specified
+// list are valid.
+func validateWatchEvents(watchEvents []notify.Event) error {
+	for _, we := range watchEvents {
+		found := false
+		for i := range AllWatchEvents {
+			if we == AllWatchEvents[i] {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return fmt.Errorf("%v: %w", we, errUnrecognizedEvent)
 		}
 	}
 	return nil

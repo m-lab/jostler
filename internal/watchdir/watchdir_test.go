@@ -5,8 +5,11 @@ package watchdir //nolint:testpackage
 import (
 	"context"
 	"errors"
+	"log"
 	"os"
 	"path/filepath"
+	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -45,9 +48,18 @@ func TestNew(t *testing.T) { //nolint:paralleltest
 			missedInterval:  30 * time.Minute,
 			wantErr:         nil,
 		},
+		{
+			name:            "unrecognized watchEvent",
+			watchDir:        "/some/path",
+			watchExtensions: []string{".json"},
+			watchEvents:     []notify.Event{notify.Event(0xcafebabe)}, // invalid (see https://pkg.go.dev/golang.org/x/sys/unix)
+			missedAge:       3 * time.Hour,
+			missedInterval:  30 * time.Minute,
+			wantErr:         errUnrecognizedEvent,
+		},
 	}
 	for i, test := range tests {
-		t.Logf(">>> test %02d %s", i, test.name)
+		t.Logf("%s>>> test %02d %s%s", ANSIPurple, i, test.name, ANSIEnd)
 		_, err := New(test.watchDir, test.watchExtensions, test.watchEvents, test.missedAge, test.missedInterval)
 		if !errors.Is(err, test.wantErr) {
 			t.Fatalf("New() = %v, want: %v", err, test.wantErr)
@@ -55,7 +67,7 @@ func TestNew(t *testing.T) { //nolint:paralleltest
 	}
 }
 
-func TestWatchAndNotify(t *testing.T) { //nolint:paralleltest,funlen
+func TestWatchAndNotify(t *testing.T) { //nolint:paralleltest
 	defer func() {
 		os.RemoveAll("testdata/j.json")
 		os.RemoveAll("testdata/t.txt")
@@ -138,12 +150,16 @@ func TestWatchAndNotify(t *testing.T) { //nolint:paralleltest,funlen
 			missedInterval:  1 * time.Second,
 		},
 	}
+	if testing.Verbose() {
+		Verbose(VLogf)
+		defer Verbose(func(fmt string, args ...interface{}) {})
+	}
 	cwd, err := os.Getwd()
 	if err != nil {
 		t.Fatalf("os.Getwd() = %v, want nil", err)
 	}
 	for i, test := range tests {
-		t.Logf(">>> test %02d %s", i, test.name)
+		t.Logf("%s>>> test %02d %s%s", ANSIPurple, i, test.name, ANSIEnd)
 		testFile := prepareFile(t, cwd, test.file, test.watchDir, test.missed, test.missedAge)
 		wd, err := New(filepath.Join(cwd, test.watchDir), test.watchExtensions, test.watchEvents, test.missedAge, test.missedInterval)
 		if err != nil {
@@ -211,4 +227,37 @@ func fileActivity(t *testing.T, wd *WatchDir, testFile string, ack bool) {
 		// Acknowledge receipt of the event.
 		wd.WatchAckChan() <- []string{testFile}
 	}
+}
+
+const (
+	ANSIGreen  = "\033[00;32m"
+	ANSIBlue   = "\033[00;34m"
+	ANSIPurple = "\033[00;35m"
+	ANSIEnd    = "\033[0m"
+)
+
+// VLogf logs messages in verbose mode (mostly for debugging).  Messages
+// are prefixed by "filename:line-number function()" printed in green and
+// the message printed in blue for easier visual inspection.
+func VLogf(format string, args ...interface{}) {
+	pc, file, line, ok := runtime.Caller(1)
+	if !ok {
+		log.Printf(format, args...)
+		return
+	}
+	details := runtime.FuncForPC(pc)
+	if details == nil {
+		log.Printf(format, args...)
+		return
+	}
+	file = filepath.Base(file)
+	idx := strings.LastIndex(details.Name(), "/")
+	if idx == -1 {
+		idx = 0
+	} else {
+		idx++
+	}
+	a := []interface{}{ANSIGreen, file, line, details.Name()[idx:], ANSIBlue}
+	a = append(a, args...)
+	log.Printf("%s%s:%d: %s(): %s"+format+"%s", append(a, ANSIEnd)...)
 }
