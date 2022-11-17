@@ -16,7 +16,7 @@
 # to use these files, just make a copy without the ".valid" suffix.
 #
 #   $ cp <file>.datatype.valid <file>.datatype
-#   $ ./test_schema.sh
+#   $ ./schema.sh
 #
 # Once there is a datatype schema, the script runs `jostler` in the
 # interactive mode (-local) to create and save a new table schema with
@@ -141,7 +141,7 @@ verify_table_schema() {
 	fi
 
 	# Create a table with the schema that jostler saved.
-	execute bq mk --project_id "${PROJECT_ID}" --table "${dataset}.${datatype}" "${datatype}.json"
+	execute bq mk --project_id "${PROJECT_ID}" --table "${dataset}.${datatype}" "${datatype}-table.json"
 
 	# Show the newly created table's full schema.
 	#execute bq show --project_id "${PROJECT_ID}" --format prettyjson "${dataset}.${datatype}"
