@@ -39,6 +39,7 @@ var (
 	// Flags related to program's execution.
 	local        bool
 	verbose      bool
+	noGCS        bool
 	testInterval time.Duration
 
 	// Errors related to command line parsing and validation.
@@ -75,6 +76,7 @@ func initFlags() {
 	// Flags related to program's execution.
 	flag.BoolVar(&local, "local", false, "run locally and create schema files for each datatype")
 	flag.BoolVar(&verbose, "verbose", false, "enable verbose mode")
+	flag.BoolVar(&noGCS, "no-gcs", false, "use local disk storage instead of cloud storage (for test purposes only)")
 	flag.DurationVar(&testInterval, "test-interval", 0, "time interval to stop running (for test purposes only)")
 
 	flag.Var(&dtSchemaFiles, "datatype-schema-file", "schema for each datatype in the format <datatype>:<pathname>")

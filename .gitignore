@@ -1,5 +1,5 @@
 .gitignore
 go.mod
 go.sum
-jostler
+./jostler
 tags
