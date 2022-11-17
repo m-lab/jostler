@@ -89,7 +89,7 @@ func main() {
 }
 
 // localMode creates table schemas with standard columns for each datatype
-// and saves them as <datatype>.json files in the current directory
+// and saves them as <datatype>-table.json files in the current directory
 // so they can be easily examined by the user.
 func localMode() error {
 	for _, datatype := range datatypes {
@@ -98,11 +98,11 @@ func localMode() error {
 		if err != nil {
 			return fmt.Errorf("%v: %w", datatype, err)
 		}
-		schemaFile := datatype + ".json"
-		if err = os.WriteFile(schemaFile, tblSchemaJSON, 0o666); err != nil {
+		tblSchemaFile := datatype + "-table.json"
+		if err = os.WriteFile(tblSchemaFile, tblSchemaJSON, 0o666); err != nil {
 			return fmt.Errorf("%v: %w", errWrite, err)
 		}
-		log.Printf("saved %v\n", schemaFile)
+		log.Printf("saved %v\n", tblSchemaFile)
 	}
 	return nil
 }
