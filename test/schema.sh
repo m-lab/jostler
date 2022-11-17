@@ -30,6 +30,10 @@ set -eu
 
 readonly PROJECT_ID="mlab-sandbox"
 
+# The `hello1` and `foo1` tables are commented out because, as their
+# names suggest, they were trivial tables to help debugging.  They are in
+# the script to let you know that you can create your own tables for test
+# purposes and do not have to rely on existing tables.
 readonly BQ_TABLES=(
 	#"${PROJECT_ID}:${USER}.hello1"
 	#"${PROJECT_ID}:${USER}.foo1"
