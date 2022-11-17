@@ -79,14 +79,16 @@ func DiskClient(ctx context.Context, bucket string) (gcs.GCSClient, error) { //n
 // Download mimics downloading from GCS.
 func (f *diskStorage) Download(ctx context.Context, objPath string) ([]byte, error) {
 	fmt.Printf("downloading from disk-bucket:%v\n", objPath) //nolint:forbidigo
+	if !strings.HasPrefix(objPath, "testdata") {
+		objPath = filepath.Join("testdata", objPath)
+	}
 	if !strings.Contains(f.bucket, "download") {
 		panic("unexpected call to Download()")
 	}
 	if strings.Contains(f.bucket, "faildownload") {
 		return nil, schema.ErrDownload
 	}
-	file := filepath.Join("testdata", objPath)
-	contents, err := os.ReadFile(file)
+	contents, err := os.ReadFile(objPath)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return nil, storage.ErrObjectNotExist
@@ -99,6 +101,9 @@ func (f *diskStorage) Download(ctx context.Context, objPath string) ([]byte, err
 // Upload mimics uploading to GCS.
 func (f *diskStorage) Upload(ctx context.Context, objPath string, contents []byte) error {
 	fmt.Printf("uploading %d bytes to disk-bucket:%s\n", len(contents), objPath) //nolint:forbidigo
+	if !strings.HasPrefix(objPath, "testdata") {
+		objPath = filepath.Join("testdata", objPath)
+	}
 	if !strings.Contains(f.bucket, "upload") {
 		panic("unexpected call to Upload()")
 	}
@@ -109,14 +114,12 @@ func (f *diskStorage) Upload(ctx context.Context, objPath string, contents []byt
 	if idx == -1 {
 		panic("Upload(): objPath")
 	}
-	dirs := filepath.Join("testdata", objPath[:idx])
-	if err := os.MkdirAll(dirs, 0o755); err != nil {
+	if err := os.MkdirAll(objPath[:idx], 0o755); err != nil {
 		if !os.IsExist(err) {
 			panic("Upload(): MkdirAll")
 		}
 	}
-	file := filepath.Join("testdata", objPath)
-	return os.WriteFile(file, contents, 0o666) //nolint:wrapcheck
+	return os.WriteFile(objPath, contents, 0o666) //nolint:wrapcheck
 }
 
 // WatchDir implements a directory watcher that mimics the watchdir
