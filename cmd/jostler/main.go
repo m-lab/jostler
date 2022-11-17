@@ -53,6 +53,7 @@ import (
 	"github.com/rjeczalik/notify"
 
 	"github.com/m-lab/jostler/internal/schema"
+	"github.com/m-lab/jostler/internal/testhelper"
 	"github.com/m-lab/jostler/internal/uploadbundle"
 	"github.com/m-lab/jostler/internal/watchdir"
 )
@@ -76,6 +77,12 @@ func main() {
 	if err := parseAndValidateCLI(); err != nil {
 		fatal(err)
 	}
+        // The noGCS flag is meant for e2e testing where we want to read
+        // from and write to the local disk storage instead of cloud storage.
+        if noGCS {
+                schema.GCSClient = testhelper.DiskClient
+                uploadbundle.GCSClient = testhelper.DiskClient
+        }
 
 	if local {
 		if err := localMode(); err != nil {

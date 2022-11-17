@@ -1,5 +1,5 @@
 There are two files in this test directory to help with integration
-testing.
+and e2e testing.
 
 1. schema.sh is a bash script that can be used for testing table schema
    creation from datatype schemas.  Read the comments at the beginning of
@@ -24,6 +24,7 @@ $ pwd
 $ mkdir -p cmd/jostler/testdata/spool/jostler/foo1
 $ go build -o . ./cmd/jostler
 $ ./jostler \
+	-no-gcs \
 	-mlab-node-name ndt-mlab1-lga01.mlab-sandbox.measurement-lab.org \
 	-gcs-bucket disk,newclient,download,upload \
 	-data-home-dir $(pwd)/cmd/jostler/testdata/spool \
@@ -35,10 +36,9 @@ $ ./jostler \
 	-missed-age 20s \
 	-missed-interval 15s
 
-Because the -gcs-bucket flag is set to disk,newclient,download,upload,
-jostler will use testhelper's local disk storage implementation which
-mimics downloads from and uploads to GCS.  This makes testing and
-debugging a lot easier.
+Because the -no-gcs flag is specified, jostler will use testhelper's local
+disk storage implementation which mimics downloads from and uploads to
+cloud storage (GCS).  This makes testing and debugging a lot easier.
 
 
 [Term C]
