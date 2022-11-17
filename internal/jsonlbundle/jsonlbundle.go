@@ -30,6 +30,7 @@ type JSONLBundle struct {
 }
 
 var (
+	ErrReadFile    = errors.New("failed to read file")
 	ErrEmptyFile   = errors.New("empty file")
 	ErrInvalidJSON = errors.New("failed to validate JSON")
 	ErrNotOneLine  = errors.New("is not one line")
@@ -127,7 +128,7 @@ func (jb *JSONLBundle) RemoveLocalFiles() {
 func readJSONFile(fullPath string) (string, error) {
 	bytes, err := os.ReadFile(fullPath)
 	if err != nil {
-		return "", fmt.Errorf("failed to read file: %w", err)
+		return "", fmt.Errorf("%v: %w", err, ErrReadFile)
 	}
 	if len(bytes) == 0 {
 		return "", fmt.Errorf("%v: %w", fullPath, ErrEmptyFile)

@@ -116,7 +116,7 @@ func TestNew(t *testing.T) { //nolint:paralleltest
 		if (gotErr != nil && test.wantErr == nil) ||
 			(gotErr == nil && test.wantErr != nil) ||
 			!errors.Is(gotErr, test.wantErr) {
-			t.Fatalf("New() = %v, want %v", err, test.wantErr)
+			t.Fatalf("New() = %v, want %v", gotErr, test.wantErr)
 		}
 	}
 }
