@@ -53,39 +53,41 @@ func VLogf(format string, args ...interface{}) {
 	log.Printf("%s%s:%d: %s(): %s"+format+"%s", append(a, ANSIEnd)...)
 }
 
-// diskStorage implements a local disk storage that mimics downloads
+// DiskStorage implements a local disk storage that mimics downloads
 // from and uploads to cloud storage (GCS) performed by the gcs package.
 //
 // To provide strict testing, each test client should set the bucket name to
 // the operation(s) it expects that particular test to perform.  An empty
 // bucket name means no GCS operation is expected.  To force a failure,
 // the operation name should be prefixed by "fail".
-type diskStorage struct {
+type DiskStorage struct {
 	bucket string
 }
 
-// DiskClient creates and returns a disk storage client that will
-// read from and write to the testdata directory on the local filesystem.
-func DiskClient(ctx context.Context, bucket string) (gcs.GCSClient, error) { //nolint:ireturn
+func DiskNewClient(ctx context.Context, bucket string) (*gcs.StorageClient, error) {
 	if !strings.Contains(bucket, "newclient") {
 		panic("unexpected call to NewClient()")
 	}
 	if bucket == "failnewclient" {
 		return nil, schema.ErrStorageClient
 	}
-	return &diskStorage{bucket: bucket}, nil
+	d := &DiskStorage{bucket: bucket}
+	return &gcs.StorageClient{
+		Download: d.Download,
+		Upload:   d.Upload,
+	}, nil
 }
 
 // Download mimics downloading from GCS.
-func (f *diskStorage) Download(ctx context.Context, objPath string) ([]byte, error) {
-	fmt.Printf("downloading from disk-bucket:%v\n", objPath) //nolint:forbidigo
+func (d *DiskStorage) Download(ctx context.Context, objPath string) ([]byte, error) {
+	fmt.Printf("DiskStorage.Download(): d.bucket=%v objPath=%v\n", d.bucket, objPath) //nolint:forbidigo
 	if !strings.HasPrefix(objPath, "testdata") {
 		objPath = filepath.Join("testdata", objPath)
 	}
-	if !strings.Contains(f.bucket, "download") {
+	if !strings.Contains(d.bucket, "download") {
 		panic("unexpected call to Download()")
 	}
-	if strings.Contains(f.bucket, "faildownload") {
+	if strings.Contains(d.bucket, "faildownload") {
 		return nil, schema.ErrDownload
 	}
 	contents, err := os.ReadFile(objPath)
@@ -99,15 +101,15 @@ func (f *diskStorage) Download(ctx context.Context, objPath string) ([]byte, err
 }
 
 // Upload mimics uploading to GCS.
-func (f *diskStorage) Upload(ctx context.Context, objPath string, contents []byte) error {
-	fmt.Printf("uploading %d bytes to disk-bucket:%s\n", len(contents), objPath) //nolint:forbidigo
+func (d *DiskStorage) Upload(ctx context.Context, objPath string, contents []byte) error {
+	fmt.Printf("DiskStorage.Upload(): d.bucket=%v objPath=%v len(contents)=%v\n", d.bucket, objPath, len(contents)) //nolint:forbidigo
 	if !strings.HasPrefix(objPath, "testdata") {
 		objPath = filepath.Join("testdata", objPath)
 	}
-	if !strings.Contains(f.bucket, "upload") {
+	if !strings.Contains(d.bucket, "upload") {
 		panic("unexpected call to Upload()")
 	}
-	if strings.Contains(f.bucket, "failupload") {
+	if strings.Contains(d.bucket, "failupload") {
 		return schema.ErrUpload
 	}
 	idx := strings.LastIndex(objPath, "/") // autoload/v0/tables/<experiment>/<datatype>.table.json

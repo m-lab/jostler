@@ -77,12 +77,12 @@ func main() {
 	if err := parseAndValidateCLI(); err != nil {
 		fatal(err)
 	}
-        // The noGCS flag is meant for e2e testing where we want to read
-        // from and write to the local disk storage instead of cloud storage.
-        if noGCS {
-                schema.GCSClient = testhelper.DiskClient
-                uploadbundle.GCSClient = testhelper.DiskClient
-        }
+	// The noGCS flag is meant for e2e testing where we want to read
+	// from and write to the local disk storage instead of cloud storage.
+	if noGCS {
+		schema.GCSClient = testhelper.DiskNewClient
+		uploadbundle.GCSClient = testhelper.DiskNewClient
+	}
 
 	if local {
 		if err := localMode(); err != nil {
