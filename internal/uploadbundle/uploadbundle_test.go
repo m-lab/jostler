@@ -86,7 +86,7 @@ func TestNew(t *testing.T) { //nolint:paralleltest
 		},
 	}
 	saveGCSClient := GCSClient
-	GCSClient = testhelper.DiskClient
+	GCSClient = testhelper.DiskNewClient
 	defer func() {
 		GCSClient = saveGCSClient
 	}()
@@ -123,7 +123,7 @@ func TestNew(t *testing.T) { //nolint:paralleltest
 
 func TestBundleAndUploadCtx(t *testing.T) { //nolint:paralleltest
 	saveGCSClient := GCSClient
-	GCSClient = testhelper.DiskClient
+	GCSClient = testhelper.DiskNewClient
 	defer func() {
 		GCSClient = saveGCSClient
 	}()
@@ -147,7 +147,7 @@ func TestBundleAndUploadCtx(t *testing.T) { //nolint:paralleltest
 
 func TestBundleAndUploadTooBig(t *testing.T) { //nolint:paralleltest
 	saveGCSClient := GCSClient
-	GCSClient = testhelper.DiskClient
+	GCSClient = testhelper.DiskNewClient
 	defer func() {
 		GCSClient = saveGCSClient
 	}()

@@ -89,7 +89,7 @@ func TestValidateAndUpload(t *testing.T) { //nolint:paralleltest,funlen
 			wantErr:         schema.ErrUnmarshal,
 		},
 		{
-			name:            "force storage client creation",
+			name:            "force storage client creation failure",
 			tblSchemaFile:   "autoload/v0/tables/jostler/foo1.table.json",
 			rmTblSchemaFile: false,
 			bucket:          "failnewclient",
@@ -173,7 +173,7 @@ func TestValidateAndUpload(t *testing.T) { //nolint:paralleltest,funlen
 	// Use a local disk storage implementation that mimics downloads
 	// from and uploads to GCS.
 	saveGCSClient := schema.GCSClient
-	schema.GCSClient = testhelper.DiskClient
+	schema.GCSClient = testhelper.DiskNewClient
 	defer func() {
 		schema.GCSClient = saveGCSClient
 		os.RemoveAll("testdata/autoload")

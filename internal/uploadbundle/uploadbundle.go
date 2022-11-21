@@ -63,7 +63,7 @@ type GCSConfig struct {
 	Bucket    string // GCS bucket name
 	DataDir   string // see the above comment
 	BaseID    string // see the above comment
-	gcsClient gcs.GCSClient
+	gcsClient *gcs.StorageClient
 }
 
 // BundleConfig defines bundle configuration options.

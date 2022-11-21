@@ -179,7 +179,7 @@ func TestCLI(t *testing.T) { //nolint:funlen,paralleltest
 	// Use a local disk storage implementation that mimics downloads
 	// from and uploads to GCS.
 	saveGCSClient := schema.GCSClient
-	schema.GCSClient = testhelper.DiskClient
+	schema.GCSClient = testhelper.DiskNewClient
 	defer func() {
 		schema.GCSClient = saveGCSClient
 		os.RemoveAll("foo1.json")
