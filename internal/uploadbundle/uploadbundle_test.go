@@ -85,16 +85,16 @@ func TestNew(t *testing.T) { //nolint:paralleltest
 			wantErr:       nil,
 		},
 	}
-	saveGCSClient := GCSClient
-	GCSClient = testhelper.DiskNewClient
-	defer func() {
-		GCSClient = saveGCSClient
-	}()
+	stClient, err := testhelper.NewClient(context.Background(), "newclient,upload")
+	if err != nil {
+		t.Fatalf("testhelper.NewClient() = %v, wanted nil", err)
+	}
 	for i, test := range tests {
 		gcsConf := GCSConfig{
-			Bucket:  test.gcsBucket,
-			DataDir: test.gcsDataDir,
-			BaseID:  test.gcsBaseID,
+			GCSClient: stClient,
+			Bucket:    test.gcsBucket,
+			DataDir:   test.gcsDataDir,
+			BaseID:    test.gcsBaseID,
 		}
 		bundleConf := BundleConfig{
 			Datatype: "foo1",
@@ -122,11 +122,6 @@ func TestNew(t *testing.T) { //nolint:paralleltest
 }
 
 func TestBundleAndUploadCtx(t *testing.T) { //nolint:paralleltest
-	saveGCSClient := GCSClient
-	GCSClient = testhelper.DiskNewClient
-	defer func() {
-		GCSClient = saveGCSClient
-	}()
 	Verbose(testhelper.VLogf)
 
 	// BundleAndUpload() returns when its context is canceled.
@@ -146,11 +141,6 @@ func TestBundleAndUploadCtx(t *testing.T) { //nolint:paralleltest
 }
 
 func TestBundleAndUploadTooBig(t *testing.T) { //nolint:paralleltest
-	saveGCSClient := GCSClient
-	GCSClient = testhelper.DiskNewClient
-	defer func() {
-		GCSClient = saveGCSClient
-	}()
 	Verbose(testhelper.VLogf)
 
 	// Force not enough room in the bundle by setting sizeMax to a
@@ -220,10 +210,15 @@ func setupClients(t *testing.T, sizeMax uint, ageMax time.Duration) (*testhelper
 	}
 
 	// Create a bundler and uploader client.
+	stClient, err := testhelper.NewClient(context.Background(), "newclient,upload")
+	if err != nil {
+		t.Fatalf("testhelper.NewClient() = %v, wanted nil", err)
+	}
 	gcsConf := GCSConfig{
-		Bucket:  "newclient,upload",
-		DataDir: "testdata/autoload/v0",
-		BaseID:  "some-string",
+		GCSClient: stClient,
+		Bucket:    "newclient,upload",
+		DataDir:   "testdata/autoload/v0",
+		BaseID:    "some-string",
 	}
 	bundleConf := BundleConfig{
 		Datatype: "foo1",

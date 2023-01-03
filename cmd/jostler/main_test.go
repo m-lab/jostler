@@ -176,12 +176,7 @@ func TestCLI(t *testing.T) { //nolint:funlen,paralleltest
 			},
 		},
 	}
-	// Use a local disk storage implementation that mimics downloads
-	// from and uploads to GCS.
-	saveGCSClient := schema.GCSClient
-	schema.GCSClient = testhelper.DiskNewClient
 	defer func() {
-		schema.GCSClient = saveGCSClient
 		os.RemoveAll("foo1.json")
 		os.RemoveAll("testdata/autoload")
 	}()
@@ -197,6 +192,9 @@ func TestCLI(t *testing.T) { //nolint:funlen,paralleltest
 		}
 		t.Logf("%s>>> test %02d: %s: %v%s", testhelper.ANSIPurple, i, s, test.name, testhelper.ANSIEnd)
 		args := test.args
+		// Use a local disk storage implementation that mimics downloads
+		// from and uploads to GCS.
+		args = append(args, "-no-gcs")
 		if testing.Verbose() {
 			args = append(args, "-verbose")
 		}

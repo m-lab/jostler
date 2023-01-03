@@ -28,7 +28,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/m-lab/jostler/internal/gcs"
 	"github.com/m-lab/jostler/internal/jsonlbundle"
 	"github.com/m-lab/jostler/internal/watchdir"
 )
@@ -51,6 +50,11 @@ type UploadBundle struct {
 	uploadBundles map[string]struct{}                 // bundles that are being uploaded or were uploaded
 }
 
+// Uploader interface.
+type Uploader interface {
+	Upload(context.Context, string, []byte) error
+}
+
 // GCSConfig defines GCS configuration options.
 //
 // GCS object names of JSONL bundles have the following format:
@@ -60,10 +64,10 @@ type UploadBundle struct {
 // Note that while slashes ("/") in GCS object names create the illusion
 // of a directory hierarchy, GCS has a flat namesapce.
 type GCSConfig struct {
+	GCSClient Uploader
 	Bucket    string // GCS bucket name
 	DataDir   string // see the above comment
 	BaseID    string // see the above comment
-	gcsClient *gcs.StorageClient
 }
 
 // BundleConfig defines bundle configuration options.
@@ -92,8 +96,7 @@ var (
 	ErrTooBig       = errors.New("is too big to fit in a bundle")
 
 	// Testing and debugging support.
-	GCSClient = gcs.NewClient
-	verbose   = func(fmt string, args ...interface{}) {}
+	verbose = func(fmt string, args ...interface{}) {}
 )
 
 // Verbose provides a convenient way for the caller to enable verbose
@@ -108,12 +111,8 @@ func New(ctx context.Context, wdClient DirWatcher, gcsConf GCSConfig, bundleConf
 	if wdClient == nil || reflect.ValueOf(wdClient).IsNil() {
 		return nil, fmt.Errorf("%w: nil watchdir client", ErrConfig)
 	}
-	if gcsConf.Bucket == "" || gcsConf.DataDir == "" || gcsConf.BaseID == "" || bundleConf.DataDir == "" {
-		return nil, fmt.Errorf("%w: empty string in parameters", ErrConfig)
-	}
-	gcsClient, err := GCSClient(ctx, gcsConf.Bucket)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create GCS client: %w", err)
+	if gcsConf.GCSClient == nil || gcsConf.Bucket == "" || gcsConf.DataDir == "" || gcsConf.BaseID == "" || bundleConf.DataDir == "" {
+		return nil, fmt.Errorf("%w: nil or empty string in GCS configuration", ErrConfig)
 	}
 	ub := &UploadBundle{
 		wdClient:      wdClient,
@@ -123,7 +122,6 @@ func New(ctx context.Context, wdClient DirWatcher, gcsConf GCSConfig, bundleConf
 		activeBundles: make(map[string]*jsonlbundle.JSONLBundle, weekDays),
 		uploadBundles: make(map[string]struct{}, numUploads),
 	}
-	ub.gcsConf.gcsClient = gcsClient
 	ub.bundleConf.DataDir = filepath.Clean(ub.bundleConf.DataDir)
 	return ub, nil
 }
@@ -299,10 +297,11 @@ func (ub *UploadBundle) uploadBundle(ctx context.Context, jb *jsonlbundle.JSONLB
 	go ub.uploadInBackground(ctx, jb, true)
 }
 
-// upload starts the process of uploading the specified measurement data
-// (JSONL bundle) and its associated index in the background.
+// uploadInBackground starts the process of uploading the specified
+// measurement data (JSONL bundle) and its associated index in the
+// background.
 func (ub *UploadBundle) uploadInBackground(ctx context.Context, jb *jsonlbundle.JSONLBundle, ack bool) {
-	gcsClient := ub.gcsConf.gcsClient
+	gcsClient := ub.gcsConf.GCSClient
 	go func(jb *jsonlbundle.JSONLBundle) {
 		// Upload the bundle.
 		objPath := filepath.Join(jb.ObjDir, jb.ObjName)
