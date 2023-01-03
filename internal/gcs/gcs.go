@@ -17,8 +17,6 @@ import (
 )
 
 type StorageClient struct {
-	// Download     func(context.Context, string) ([]byte, error)
-	// Upload       func(context.Context, string, []byte) error
 	bucket       string
 	client       stiface.Client
 	bucketHandle stiface.BucketHandle
