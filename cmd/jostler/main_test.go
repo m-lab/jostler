@@ -194,7 +194,7 @@ func TestCLI(t *testing.T) { //nolint:funlen,paralleltest
 		args := test.args
 		// Use a local disk storage implementation that mimics downloads
 		// from and uploads to GCS.
-		args = append(args, "-no-gcs")
+		args = append(args, "-local-disk")
 		if testing.Verbose() {
 			args = append(args, "-verbose")
 		}

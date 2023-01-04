@@ -24,7 +24,7 @@ $ pwd
 $ mkdir -p cmd/jostler/testdata/spool/jostler/foo1
 $ go build -o . ./cmd/jostler
 $ ./jostler \
-	-no-gcs \
+	-local-disk \
 	-mlab-node-name ndt-mlab1-lga01.mlab-sandbox.measurement-lab.org \
 	-gcs-bucket disk,newclient,download,upload \
 	-data-home-dir $(pwd)/cmd/jostler/testdata/spool \
@@ -36,7 +36,7 @@ $ ./jostler \
 	-missed-age 20s \
 	-missed-interval 15s
 
-Because the -no-gcs flag is specified, jostler will use testhelper's local
+Because the -local-disk flag is specified, jostler will use testhelper's local
 disk storage implementation which mimics downloads from and uploads to
 cloud storage (GCS).  This makes testing and debugging a lot easier.
 

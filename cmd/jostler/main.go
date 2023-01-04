@@ -115,11 +115,11 @@ func localMode() error {
 func daemonMode() error {
 	mainCtx, mainCancel := context.WithCancel(context.Background())
 	// Create a storage client.
-	// The noGCS flag is meant for e2e testing where we want to read
+	// The localDisk flag is meant for e2e testing where we want to read
 	// from and write to the local disk storage instead of cloud storage.
 	var stClient schema.DownloaderUploader
 	var err error
-	if noGCS {
+	if localDisk {
 		stClient, err = testhelper.NewClient(mainCtx, bucket)
 	} else {
 		stClient, err = gcs.NewClient(mainCtx, bucket)
@@ -200,10 +200,10 @@ func startUploader(mainCtx context.Context, mainCancel context.CancelFunc, statu
 	}
 
 	// Create a storage client.
-	// The noGCS flag is meant for e2e testing where we want to read
+	// The localDisk flag is meant for e2e testing where we want to read
 	// from and write to the local disk storage instead of cloud storage.
 	var stClient uploadbundle.Uploader
-	if noGCS {
+	if localDisk {
 		stClient, err = testhelper.NewClient(mainCtx, bucket)
 	} else {
 		stClient, err = gcs.NewClient(mainCtx, bucket)

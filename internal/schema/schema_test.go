@@ -3,6 +3,7 @@ package schema_test
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -189,7 +190,7 @@ func TestValidateAndUpload(t *testing.T) { //nolint:paralleltest,funlen
 		// from and uploads to GCS.
 		stClient, err := testhelper.NewClient(context.Background(), test.bucket)
 		if err != nil {
-			if strings.Contains(err.Error(), test.wantErr.Error()) {
+			if errors.Is(err, test.wantErr) {
 				continue // we expected this error
 			}
 			t.Fatalf("testhelper.NewClient() = %v, wanted nil", err)
