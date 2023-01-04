@@ -2,6 +2,8 @@
 package schema_test
 
 import (
+	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -72,7 +74,7 @@ func TestValidateAndUpload(t *testing.T) { //nolint:paralleltest,funlen
 			name:            "non-existent datatype schema file, should not upload",
 			tblSchemaFile:   "autoload/v0/tables/jostler/foo1.table.json",
 			rmTblSchemaFile: false,
-			bucket:          "disk-bucket",
+			bucket:          "newclient",
 			experiment:      testExperiment,
 			datatype:        testDatatype,
 			dtSchemaFile:    "testdata/datatypes/non-existent.json", // this file doesn't exist
@@ -82,7 +84,7 @@ func TestValidateAndUpload(t *testing.T) { //nolint:paralleltest,funlen
 			name:            "invalid datatype schema file, should not upload",
 			tblSchemaFile:   "autoload/v0/tables/jostler/foo1.table.json",
 			rmTblSchemaFile: false,
-			bucket:          "disk-bucket",
+			bucket:          "newclient",
 			experiment:      testExperiment,
 			datatype:        testDatatype,
 			dtSchemaFile:    "testdata/datatypes/foo1-invalid.json", // this file doesn't exist
@@ -170,12 +172,7 @@ func TestValidateAndUpload(t *testing.T) { //nolint:paralleltest,funlen
 		},
 	}
 
-	// Use a local disk storage implementation that mimics downloads
-	// from and uploads to GCS.
-	saveGCSClient := schema.GCSClient
-	schema.GCSClient = testhelper.DiskNewClient
 	defer func() {
-		schema.GCSClient = saveGCSClient
 		os.RemoveAll("testdata/autoload")
 	}()
 	for i, test := range tests {
@@ -189,7 +186,16 @@ func TestValidateAndUpload(t *testing.T) { //nolint:paralleltest,funlen
 			s = "should fail"
 		}
 		t.Logf("%s>>> test %02d: %s: %v%s", testhelper.ANSIPurple, i, s, test.name, testhelper.ANSIEnd)
-		gotErr := schema.ValidateAndUpload(test.bucket, test.experiment, test.datatype, test.dtSchemaFile)
+		// Use a local disk storage implementation that mimics downloads
+		// from and uploads to GCS.
+		stClient, err := testhelper.NewClient(context.Background(), test.bucket)
+		if err != nil {
+			if errors.Is(err, test.wantErr) {
+				continue // we expected this error
+			}
+			t.Fatalf("testhelper.NewClient() = %v, wanted nil", err)
+		}
+		gotErr := schema.ValidateAndUpload(stClient, test.bucket, test.experiment, test.datatype, test.dtSchemaFile)
 		t.Logf("%s>>> gotErr=%v%s\n\n", testhelper.ANSIPurple, gotErr, testhelper.ANSIEnd)
 		if gotErr == nil && test.wantErr == nil {
 			continue

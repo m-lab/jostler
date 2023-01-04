@@ -52,6 +52,7 @@ import (
 	"github.com/m-lab/go/host"
 	"github.com/rjeczalik/notify"
 
+	"github.com/m-lab/jostler/internal/gcs"
 	"github.com/m-lab/jostler/internal/schema"
 	"github.com/m-lab/jostler/internal/testhelper"
 	"github.com/m-lab/jostler/internal/uploadbundle"
@@ -76,12 +77,6 @@ func main() {
 	log.SetFlags(log.Ltime)
 	if err := parseAndValidateCLI(); err != nil {
 		fatal(err)
-	}
-	// The noGCS flag is meant for e2e testing where we want to read
-	// from and write to the local disk storage instead of cloud storage.
-	if noGCS {
-		schema.GCSClient = testhelper.DiskNewClient
-		uploadbundle.GCSClient = testhelper.DiskNewClient
 	}
 
 	if local {
@@ -118,24 +113,39 @@ func localMode() error {
 // individual measurement data files in JSON format into JSONL bundles and
 // upload to GCS.
 func daemonMode() error {
+	mainCtx, mainCancel := context.WithCancel(context.Background())
+	// Create a storage client.
+	// The localDisk flag is meant for e2e testing where we want to read
+	// from and write to the local disk storage instead of cloud storage.
+	var stClient schema.DownloaderUploader
+	var err error
+	if localDisk {
+		stClient, err = testhelper.NewClient(mainCtx, bucket)
+	} else {
+		stClient, err = gcs.NewClient(mainCtx, bucket)
+	}
+	if err != nil {
+		mainCancel()
+		return fmt.Errorf("failed to create storage client: %w", err)
+	}
 	// Validate table schemas are backward compatible and upload the
 	// ones are a superset of the previous table.
 	for _, datatype := range datatypes {
 		dtSchemaFile := schema.PathForDatatype(datatype, dtSchemaFiles)
-		if err := schema.ValidateAndUpload(bucket, experiment, datatype, dtSchemaFile); err != nil {
+		if err = schema.ValidateAndUpload(stClient, bucket, experiment, datatype, dtSchemaFile); err != nil {
+			mainCancel()
 			return fmt.Errorf("%v: %w", datatype, err)
 		}
 	}
 
-	watchEvents := []notify.Event{notify.InCloseWrite, notify.InMovedTo}
-	mainCtx, mainCancel := context.WithCancel(context.Background())
-	// defer mainCancel()
 	// For each datatype, start a directory watcher and a bundle
 	// uploader.
+	watchEvents := []notify.Event{notify.InCloseWrite, notify.InMovedTo}
 	watcherStatus := make(chan error)
 	uploaderStatus := make(chan error)
 	for _, datatype := range datatypes {
-		wdClient, err := startWatcher(mainCtx, mainCancel, watcherStatus, datatype, watchEvents)
+		var wdClient *watchdir.WatchDir
+		wdClient, err = startWatcher(mainCtx, mainCancel, watcherStatus, datatype, watchEvents)
 		if err != nil {
 			return err
 		}
@@ -156,7 +166,6 @@ func daemonMode() error {
 	// to close or if the main context is explicitly canceled, the
 	// goroutines created in startWatcher() and startBundleUploader()
 	// will terminate and the following Wait() returns.
-	var err error
 	select {
 	case err = <-watcherStatus:
 	case err = <-uploaderStatus:
@@ -190,10 +199,23 @@ func startUploader(mainCtx context.Context, mainCancel context.CancelFunc, statu
 		return nil, fmt.Errorf("failed to parse hostname: %w", err)
 	}
 
+	// Create a storage client.
+	// The localDisk flag is meant for e2e testing where we want to read
+	// from and write to the local disk storage instead of cloud storage.
+	var stClient uploadbundle.Uploader
+	if localDisk {
+		stClient, err = testhelper.NewClient(mainCtx, bucket)
+	} else {
+		stClient, err = gcs.NewClient(mainCtx, bucket)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to create storage client: %w", err)
+	}
 	gcsConf := uploadbundle.GCSConfig{
-		Bucket:  bucket,
-		DataDir: filepath.Join(gcsHomeDir, experiment, datatype),
-		BaseID:  fmt.Sprintf("%s-%s-%s-%s", datatype, nameParts.Machine, nameParts.Site, experiment),
+		GCSClient: stClient,
+		Bucket:    bucket,
+		DataDir:   filepath.Join(gcsHomeDir, experiment, datatype),
+		BaseID:    fmt.Sprintf("%s-%s-%s-%s", datatype, nameParts.Machine, nameParts.Site, experiment),
 	}
 	bundleConf := uploadbundle.BundleConfig{
 		Version:   version,

@@ -15,7 +15,6 @@ import (
 	"strings"
 
 	"cloud.google.com/go/storage"
-	"github.com/m-lab/jostler/internal/gcs"
 	"github.com/m-lab/jostler/internal/schema"
 	"github.com/m-lab/jostler/internal/watchdir"
 )
@@ -53,36 +52,34 @@ func VLogf(format string, args ...interface{}) {
 	log.Printf("%s%s:%d: %s(): %s"+format+"%s", append(a, ANSIEnd)...)
 }
 
-// diskStorage implements a local disk storage that mimics downloads
+// StorageClient implements a local disk storage that mimics downloads
 // from and uploads to cloud storage (GCS) performed by the gcs package.
 //
 // To provide strict testing, each test client should set the bucket name to
 // the operation(s) it expects that particular test to perform.  An empty
 // bucket name means no GCS operation is expected.  To force a failure,
 // the operation name should be prefixed by "fail".
-type diskStorage struct {
+type StorageClient struct {
 	bucket string
 }
 
-// DiskNewClient creates and returns a new client that mimics upload
-// and download methods of a cloud storage client on the local disk.
-func DiskNewClient(ctx context.Context, bucket string) (*gcs.StorageClient, error) {
+// NewClient creates and returns a new client that mimics the upload
+// method of a cloud storage client on the local disk.
+func NewClient(ctx context.Context, bucket string) (*StorageClient, error) {
 	if !strings.Contains(bucket, "newclient") {
 		panic("unexpected call to NewClient()")
 	}
 	if bucket == "failnewclient" {
 		return nil, schema.ErrStorageClient
 	}
-	d := &diskStorage{bucket: bucket}
-	return &gcs.StorageClient{
-		Download: d.download,
-		Upload:   d.upload,
+	return &StorageClient{
+		bucket: bucket,
 	}, nil
 }
 
-// download mimics downloading from GCS.
-func (d *diskStorage) download(ctx context.Context, objPath string) ([]byte, error) {
-	fmt.Printf("diskStorage.Download(): d.bucket=%v objPath=%v\n", d.bucket, objPath) //nolint:forbidigo
+// Download mimics downloading from GCS.
+func (d *StorageClient) Download(ctx context.Context, objPath string) ([]byte, error) {
+	fmt.Printf("StorageClient.Download(): d.bucket=%v objPath=%v\n", d.bucket, objPath) //nolint:forbidigo
 	if !strings.HasPrefix(objPath, "testdata") {
 		objPath = filepath.Join("testdata", objPath)
 	}
@@ -102,9 +99,9 @@ func (d *diskStorage) download(ctx context.Context, objPath string) ([]byte, err
 	return contents, nil
 }
 
-// upload mimics uploading to GCS.
-func (d *diskStorage) upload(ctx context.Context, objPath string, contents []byte) error {
-	fmt.Printf("diskStorage.upload(): d.bucket=%v objPath=%v len(contents)=%v\n", d.bucket, objPath, len(contents)) //nolint:forbidigo
+// Upload mimics uploading to GCS.
+func (d *StorageClient) Upload(ctx context.Context, objPath string, contents []byte) error {
+	fmt.Printf("StorageClient.upload(): d.bucket=%v objPath=%v len(contents)=%v\n", d.bucket, objPath, len(contents)) //nolint:forbidigo
 	if !strings.HasPrefix(objPath, "testdata") {
 		objPath = filepath.Join("testdata", objPath)
 	}

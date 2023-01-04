@@ -13,8 +13,13 @@ import (
 	"cloud.google.com/go/bigquery"
 	"cloud.google.com/go/storage"
 	"github.com/m-lab/jostler/api"
-	"github.com/m-lab/jostler/internal/gcs"
 )
+
+// DownloaderUploader interface.
+type DownloaderUploader interface {
+	Download(context.Context, string) ([]byte, error)
+	Upload(context.Context, string, []byte) error
+}
 
 type (
 	bqField   map[string]interface{}
@@ -44,8 +49,7 @@ var (
 	ErrUpload         = errors.New("failed to upload schema")
 
 	// Testing and debugging support.
-	GCSClient = gcs.NewClient
-	verbosef  = func(fmt string, args ...interface{}) {}
+	verbosef = func(fmt string, args ...interface{}) {}
 )
 
 // Verbose prints verbosef messages if initialized by the caller.
@@ -101,18 +105,18 @@ func CreateTableSchemaJSON(datatype, dtSchemaFile string) ([]byte, error) {
 // previous table schema for the given datatype and returns an error
 // if they are not compatibale.  If the new table schema is a superset
 // of the previous one, it will be uploaded to GCS.
-func ValidateAndUpload(bucket, experiment, datatype, dtSchemaFile string) error {
+func ValidateAndUpload(gcsClient DownloaderUploader, bucket, experiment, datatype, dtSchemaFile string) error {
 	if err := ValidateSchemaFile(dtSchemaFile); err != nil {
 		return err
 	}
-	diff, err := checkTable(bucket, experiment, datatype, dtSchemaFile)
+	diff, err := diffTableSchemas(gcsClient, bucket, experiment, datatype, dtSchemaFile)
 	if err != nil {
 		if !errors.Is(err, storage.ErrObjectNotExist) {
 			return fmt.Errorf("%v: %w", ErrCompare, err)
 		}
 		// Scenario 1: old doesn't exist, should upload new.
 		verbosef("no old table schema")
-		return uploadTableSchema(bucket, experiment, datatype, dtSchemaFile)
+		return uploadTableSchema(gcsClient, bucket, experiment, datatype, dtSchemaFile)
 	}
 	if diff.nInOld != 0 {
 		// Scenario 4 - new incompatible with old due to missing fields, should not upload.
@@ -125,16 +129,16 @@ func ValidateAndUpload(bucket, experiment, datatype, dtSchemaFile string) error 
 	if diff.nInNew != 0 {
 		// Scenario 3 - new is a superset of old, should upload.
 		verbosef("%2d field(s) only in new schema", diff.nInNew)
-		return uploadTableSchema(bucket, experiment, datatype, dtSchemaFile)
+		return uploadTableSchema(gcsClient, bucket, experiment, datatype, dtSchemaFile)
 	}
 	// Scenario 2 - old exists and matches new, should not upload.
 	return nil
 }
 
-// checkTable builds a new table schema for the given datatype,
+// diffTableSchemas builds a new table schema for the given datatype,
 // compares it against the old table schema (if it exists), and returns
 // their differences.
-func checkTable(bucket, experiment, datatype, dtSchemaFile string) (*mapDiff, error) {
+func diffTableSchemas(gcsClient DownloaderUploader, bucket, experiment, datatype, dtSchemaFile string) (*mapDiff, error) {
 	// Fetch the old table schema if it exists.  If it doesn't exist,
 	// there is nothing to validate for this datatype and the new table
 	// schema should be uploaded.
@@ -143,10 +147,6 @@ func checkTable(bucket, experiment, datatype, dtSchemaFile string) (*mapDiff, er
 	objPath = strings.Replace(objPath, "<datatype>", datatype, 1)
 	// Create a storage client for downloading.
 	verbosef("downloading '%v:%v'", bucket, objPath)
-	gcsClient, err := GCSClient(ctx, bucket)
-	if err != nil {
-		return nil, fmt.Errorf("%v: %w", ErrStorageClient, err)
-	}
 	oldTblSchemaJSON, err := gcsClient.Download(ctx, objPath)
 	if err != nil {
 		return nil, fmt.Errorf("%v: %w", ErrDownload, err)
@@ -189,7 +189,7 @@ func checkTable(bucket, experiment, datatype, dtSchemaFile string) (*mapDiff, er
 
 // uploadTableSchema creates a table schema for the given datatype schema
 // and uploads it to GCS.
-func uploadTableSchema(bucket, experiment, datatype, dtSchemaFile string) error {
+func uploadTableSchema(gcsClient DownloaderUploader, bucket, experiment, datatype, dtSchemaFile string) error {
 	ctx := context.Background()
 	tblSchemaJSON, err := CreateTableSchemaJSON(datatype, dtSchemaFile)
 	if err != nil {
@@ -199,13 +199,10 @@ func uploadTableSchema(bucket, experiment, datatype, dtSchemaFile string) error 
 	objPath = strings.Replace(objPath, "<datatype>", datatype, 1)
 	// Create a storage client for uploading.
 	verbosef("uploading '%v:%v'", bucket, objPath)
-	gcsClient, err := GCSClient(ctx, bucket)
-	if err != nil {
-		return fmt.Errorf("%v: %w", ErrStorageClient, err)
-	}
 	if err := gcsClient.Upload(ctx, objPath, tblSchemaJSON); err != nil {
 		return fmt.Errorf("%v: %w", ErrUpload, err)
 	}
+	verbosef("successfully uploaded '%v:%v'", bucket, objPath)
 	return nil
 }
 

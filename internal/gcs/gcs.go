@@ -17,8 +17,6 @@ import (
 )
 
 type StorageClient struct {
-	Download     func(context.Context, string) ([]byte, error)
-	Upload       func(context.Context, string, []byte) error
 	bucket       string
 	client       stiface.Client
 	bucketHandle stiface.BucketHandle
@@ -57,18 +55,15 @@ func NewClient(ctx context.Context, bucket string) (*StorageClient, error) {
 }
 
 func newStorageClient(bucket string, client stiface.Client, bucketHandle stiface.BucketHandle) *StorageClient {
-	s := StorageClient{
+	return &StorageClient{
 		bucket:       bucket,
 		client:       client,
 		bucketHandle: bucketHandle,
 	}
-	s.Download = s.download
-	s.Upload = s.upload
-	return &s
 }
 
-// download downloads the specified object from GCS.
-func (s *StorageClient) download(ctx context.Context, objPath string) ([]byte, error) {
+// Download downloads the specified object from GCS.
+func (s *StorageClient) Download(ctx context.Context, objPath string) ([]byte, error) {
 	verbose("downloading '%v:%v'", s.bucket, objPath)
 	storageCtx, storageCancel := context.WithTimeout(ctx, downloadTimeout)
 	defer storageCancel()
@@ -86,12 +81,12 @@ func (s *StorageClient) download(ctx context.Context, objPath string) ([]byte, e
 	return contents, nil
 }
 
-// upload uploads the specified contents to GCS.
+// Upload uploads the specified contents to GCS.
 //
 // Methods in the storage package may retry calls that fail with transient
 // errors. Retrying continues indefinitely unless the controlling context is
 // canceled, the client is closed, or a non-transient error is received.
-func (s *StorageClient) upload(ctx context.Context, objPath string, contents []byte) error {
+func (s *StorageClient) Upload(ctx context.Context, objPath string, contents []byte) error {
 	verbose("uploading '%v:%v'", s.bucket, objPath)
 	obj := s.bucketHandle.Object(objPath)
 	storageCtx, storageCancel := context.WithTimeout(ctx, uploadTimeout)
