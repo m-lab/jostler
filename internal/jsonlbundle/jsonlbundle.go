@@ -55,7 +55,7 @@ func New(bucket, gcsDataDir, gcsBaseID, datatype, dateSubdir string) *JSONLBundl
 		Datatype:   datatype,
 		DateSubdir: dateSubdir,
 		bucket:     bucket,
-		ObjDir:     fmt.Sprintf("%s/%s", gcsDataDir, nowUTC.Format("2006/01/02")), // e.g., ndt/pcap/2022/09/14
+		ObjDir:     fmt.Sprintf("%s/date=%s", gcsDataDir, nowUTC.Format("2006-01-02")), // e.g., ndt/pcap/date=2022-09-14
 		ObjName:    objName + ".jsonl",
 		IdxName:    objName + ".index",
 		FullPaths:  []string{},

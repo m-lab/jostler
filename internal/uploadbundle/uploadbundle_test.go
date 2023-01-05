@@ -217,7 +217,7 @@ func setupClients(t *testing.T, sizeMax uint, ageMax time.Duration) (*testhelper
 	gcsConf := GCSConfig{
 		GCSClient: stClient,
 		Bucket:    "newclient,upload",
-		DataDir:   "testdata/autoload/v0",
+		DataDir:   "testdata/autoload/v1",
 		BaseID:    "some-string",
 	}
 	bundleConf := BundleConfig{
