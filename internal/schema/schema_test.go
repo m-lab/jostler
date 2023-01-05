@@ -72,7 +72,7 @@ func TestValidateAndUpload(t *testing.T) { //nolint:paralleltest,funlen
 	}{
 		{
 			name:            "non-existent datatype schema file, should not upload",
-			tblSchemaFile:   "autoload/v0/tables/jostler/foo1.table.json",
+			tblSchemaFile:   "autoload/v1/tables/jostler/foo1.table.json",
 			rmTblSchemaFile: false,
 			bucket:          "newclient",
 			experiment:      testExperiment,
@@ -82,7 +82,7 @@ func TestValidateAndUpload(t *testing.T) { //nolint:paralleltest,funlen
 		},
 		{
 			name:            "invalid datatype schema file, should not upload",
-			tblSchemaFile:   "autoload/v0/tables/jostler/foo1.table.json",
+			tblSchemaFile:   "autoload/v1/tables/jostler/foo1.table.json",
 			rmTblSchemaFile: false,
 			bucket:          "newclient",
 			experiment:      testExperiment,
@@ -92,7 +92,7 @@ func TestValidateAndUpload(t *testing.T) { //nolint:paralleltest,funlen
 		},
 		{
 			name:            "force storage client creation failure",
-			tblSchemaFile:   "autoload/v0/tables/jostler/foo1.table.json",
+			tblSchemaFile:   "autoload/v1/tables/jostler/foo1.table.json",
 			rmTblSchemaFile: false,
 			bucket:          "failnewclient",
 			experiment:      testExperiment,
@@ -102,7 +102,7 @@ func TestValidateAndUpload(t *testing.T) { //nolint:paralleltest,funlen
 		},
 		{
 			name:            "scenario 1 - old doesn't exist, should upload, but force upload failure",
-			tblSchemaFile:   "autoload/v0/tables/jostler/foo1.table.json",
+			tblSchemaFile:   "autoload/v1/tables/jostler/foo1.table.json",
 			rmTblSchemaFile: true,
 			bucket:          "newclient,download,failupload",
 			experiment:      testExperiment,
@@ -112,7 +112,7 @@ func TestValidateAndUpload(t *testing.T) { //nolint:paralleltest,funlen
 		},
 		{
 			name:            "scenario 1 - old doesn't exist, should upload",
-			tblSchemaFile:   "autoload/v0/tables/jostler/foo1.table.json",
+			tblSchemaFile:   "autoload/v1/tables/jostler/foo1.table.json",
 			rmTblSchemaFile: true,
 			bucket:          "newclient,download,upload",
 			experiment:      testExperiment,
@@ -122,7 +122,7 @@ func TestValidateAndUpload(t *testing.T) { //nolint:paralleltest,funlen
 		},
 		{
 			name:            "scenario 2 - old exists, new matches, but force download failure",
-			tblSchemaFile:   "autoload/v0/tables/jostler/foo1.table.json",
+			tblSchemaFile:   "autoload/v1/tables/jostler/foo1.table.json",
 			rmTblSchemaFile: false,
 			bucket:          "newclient,faildownload",
 			experiment:      testExperiment,
@@ -132,7 +132,7 @@ func TestValidateAndUpload(t *testing.T) { //nolint:paralleltest,funlen
 		},
 		{
 			name:            "scenario 2 - old exists, new matches, should not upload",
-			tblSchemaFile:   "autoload/v0/tables/jostler/foo1.table.json",
+			tblSchemaFile:   "autoload/v1/tables/jostler/foo1.table.json",
 			rmTblSchemaFile: false,
 			bucket:          "newclient,download",
 			experiment:      testExperiment,
@@ -142,7 +142,7 @@ func TestValidateAndUpload(t *testing.T) { //nolint:paralleltest,funlen
 		},
 		{
 			name:            "scenario 3 - old exists, new is a superset, should upload",
-			tblSchemaFile:   "autoload/v0/tables/jostler/foo1.table.json",
+			tblSchemaFile:   "autoload/v1/tables/jostler/foo1.table.json",
 			rmTblSchemaFile: false,
 			bucket:          "newclient,download,upload",
 			experiment:      testExperiment,
@@ -152,7 +152,7 @@ func TestValidateAndUpload(t *testing.T) { //nolint:paralleltest,funlen
 		},
 		{
 			name:            "scenario 4 - old exists, new is incompatible due to missing field mismatch, should not upload",
-			tblSchemaFile:   "autoload/v0/tables/jostler/foo1.table.json",
+			tblSchemaFile:   "autoload/v1/tables/jostler/foo1.table.json",
 			rmTblSchemaFile: false,
 			bucket:          "newclient,download",
 			experiment:      testExperiment,
@@ -162,7 +162,7 @@ func TestValidateAndUpload(t *testing.T) { //nolint:paralleltest,funlen
 		},
 		{
 			name:            "scenario 4 - old exists, new is incompatible due to field types, should not upload",
-			tblSchemaFile:   "autoload/v0/tables/jostler/foo1.table.json",
+			tblSchemaFile:   "autoload/v1/tables/jostler/foo1.table.json",
 			rmTblSchemaFile: false,
 			bucket:          "newclient,download",
 			experiment:      testExperiment,

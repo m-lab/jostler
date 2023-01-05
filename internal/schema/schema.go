@@ -33,7 +33,7 @@ type (
 
 var (
 	dtSchemaPathTemplate  = "/var/spool/datatypes/<datatype>.json"
-	tblSchemaPathTemplate = "autoload/v0/tables/<experiment>/<datatype>.table.json"
+	tblSchemaPathTemplate = "autoload/v1/tables/<experiment>/<datatype>.table.json"
 
 	ErrStorageClient  = errors.New("failed to create storage client")
 	ErrReadSchema     = errors.New("failed to read schema file")

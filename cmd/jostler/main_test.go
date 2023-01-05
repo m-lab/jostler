@@ -182,7 +182,7 @@ func TestCLI(t *testing.T) { //nolint:funlen,paralleltest
 	}()
 	for i, test := range tests {
 		if test.rmTblSchemaFile {
-			os.RemoveAll("testdata/autoload/v0/tables/jostler/foo1.table.json")
+			os.RemoveAll("testdata/autoload/v1/tables/jostler/foo1.table.json")
 		}
 		var s string
 		if test.wantErrStr == "" {

@@ -13,7 +13,7 @@
 //
 // Bundle objects uploaded to GCS follow this naming convention:
 //
-//	<BundleConfig.DataDir>/<yyyy>/<mm>/<dd>/<timestamp>-<BaseID>.jsonl.gz
+//	<BundleConfig.DataDir>/date=<yyyy>-<mm>-<dd>/<timestamp>-<BaseID>.jsonl.gz
 package uploadbundle
 
 import (
@@ -58,8 +58,8 @@ type Uploader interface {
 // GCSConfig defines GCS configuration options.
 //
 // GCS object names of JSONL bundles have the following format:
-// autoload/v0/<experiment>/<datatype>/<yyyy>/<mm>/<dd>/<timestamp>-<datatype>-<node-name>-<experiment>.jsonl.gz
-// |------------DataDir--------------|                              |-------------BaseID--------------|
+// autoload/v1/<experiment>/<datatype>/date=<yyyy>-<mm>-<dd>/<timestamp>-<datatype>-<node-name>-<experiment>.jsonl.gz
+// |------------DataDir--------------|                                   |-------------BaseID--------------|
 //
 // Note that while slashes ("/") in GCS object names create the illusion
 // of a directory hierarchy, GCS has a flat namesapce.

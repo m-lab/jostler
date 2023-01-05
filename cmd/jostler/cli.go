@@ -57,7 +57,7 @@ var (
 func initFlags() {
 	// Flags related to GCS.
 	flag.StringVar(&bucket, "gcs-bucket", "", "required - GCS bucket name")
-	flag.StringVar(&gcsHomeDir, "gcs-home-dir", "autoload/v0", "home directory in GCS bucket under which bundles will be uploaded")
+	flag.StringVar(&gcsHomeDir, "gcs-home-dir", "autoload/v1", "home directory in GCS bucket under which bundles will be uploaded")
 	flag.StringVar(&mlabNodeName, "mlab-node-name", "", "required - node name specified directly or via MLAB_NODE_NAME env variable")
 
 	// Flags related to bundles.

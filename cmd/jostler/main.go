@@ -35,9 +35,9 @@
 //  2. Datatype schema files will be read from the local filesystem at:
 //     /var/spool/datatypes/<datatype>.json
 //  3. Table schema files will be uploaded to GCS as:
-//     autoload/v0/tables/<experiment>/<datatype>.table.json
+//     autoload/v1/tables/<experiment>/<datatype>.table.json
 //  4. JSONL files will be uploaded to GCS as:
-//     autoload/v0/<experiment>/<datatype>/<yyyy>/<mm>/<dd>/<timestamp>-<datatype>-<node-name>-<experiment>.jsonl.gz
+//     autoload/v1/<experiment>/<datatype>/date=<yyyy>-<mm>-<dd>/<timestamp>-<datatype>-<node-name>-<experiment>.jsonl.gz
 package main
 
 import (
@@ -128,6 +128,7 @@ func daemonMode() error {
 		mainCancel()
 		return fmt.Errorf("failed to create storage client: %w", err)
 	}
+
 	// Validate table schemas are backward compatible and upload the
 	// ones are a superset of the previous table.
 	for _, datatype := range datatypes {

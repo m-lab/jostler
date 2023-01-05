@@ -26,7 +26,7 @@ $ go build -o . ./cmd/jostler
 $ ./jostler \
 	-local-disk \
 	-mlab-node-name ndt-mlab1-lga01.mlab-sandbox.measurement-lab.org \
-	-gcs-bucket disk,newclient,download,upload \
+	-gcs-bucket newclient,download,upload \
 	-data-home-dir $(pwd)/cmd/jostler/testdata/spool \
 	-experiment jostler \
 	-datatype foo1 \
@@ -49,9 +49,9 @@ $ while :; do tree testdata cmd/jostler/testdata/spool; sleep 1; done
 You will see that data files are created by test/data.go in the
 subdirectories of:
 
-	.../jostler/cmd/jostler/testdata/spool/jostler/foo1/2022/11
+	.../jostler/cmd/jostler/testdata/spool/jostler/foo1/<yyyy>/<mm>/
 
 and are deleted by jostler after they are bundled and "uploaded" to the
 subdirectories of:
 
-	.../jostler/testdata/autoload/v0/jostler/foo1/2002/11
+	.../jostler/testdata/autoload/v1/jostler/foo1/date=<yyyy>-<mm>-<dd>

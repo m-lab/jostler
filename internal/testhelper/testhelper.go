@@ -101,7 +101,7 @@ func (d *StorageClient) Download(ctx context.Context, objPath string) ([]byte, e
 
 // Upload mimics uploading to GCS.
 func (d *StorageClient) Upload(ctx context.Context, objPath string, contents []byte) error {
-	fmt.Printf("StorageClient.upload(): d.bucket=%v objPath=%v len(contents)=%v\n", d.bucket, objPath, len(contents)) //nolint:forbidigo
+	fmt.Printf("StorageClient.Upload(): d.bucket=%v objPath=%v len(contents)=%v\n", d.bucket, objPath, len(contents)) //nolint:forbidigo
 	if !strings.HasPrefix(objPath, "testdata") {
 		objPath = filepath.Join("testdata", objPath)
 	}
@@ -111,7 +111,7 @@ func (d *StorageClient) Upload(ctx context.Context, objPath string, contents []b
 	if strings.Contains(d.bucket, "failupload") {
 		return schema.ErrUpload
 	}
-	idx := strings.LastIndex(objPath, "/") // autoload/v0/tables/<experiment>/<datatype>.table.json
+	idx := strings.LastIndex(objPath, "/") // autoload/v1/tables/<experiment>/<datatype>.table.json
 	if idx == -1 {
 		panic("Upload(): objPath")
 	}
