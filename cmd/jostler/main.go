@@ -78,6 +78,8 @@ func main() {
 	if err := parseAndValidateCLI(); err != nil {
 		fatal(err)
 	}
+	schema.LocalDataDir = localDataDir
+	schema.GCSHomeDir = gcsHomeDir
 
 	if local {
 		if err := localMode(); err != nil {
@@ -179,7 +181,7 @@ func daemonMode() error {
 // specified directory and notifies its client of new (and potentially
 // missed) files.
 func startWatcher(mainCtx context.Context, mainCancel context.CancelFunc, status chan<- error, datatype string, watchEvents []notify.Event) (*watchdir.WatchDir, error) {
-	watchDir := filepath.Join(dataHomeDir, experiment, datatype)
+	watchDir := filepath.Join(localDataDir, experiment, datatype)
 	wdClient, err := watchdir.New(watchDir, extensions, watchEvents, missedAge, missedInterval)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate watcher: %w", err)
@@ -222,7 +224,7 @@ func startUploader(mainCtx context.Context, mainCancel context.CancelFunc, statu
 		Version:   version,
 		GitCommit: gitCommit,
 		Datatype:  datatype,
-		DataDir:   filepath.Join(dataHomeDir, experiment, datatype),
+		DataDir:   filepath.Join(localDataDir, experiment, datatype),
 		SizeMax:   bundleSizeMax,
 		AgeMax:    bundleAgeMax,
 	}

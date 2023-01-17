@@ -29,7 +29,7 @@ var (
 	bundleAgeMax  time.Duration
 
 	// Flags related to where to watch for data (inotify events).
-	dataHomeDir    string
+	localDataDir   string
 	extensions     flagx.StringArray
 	experiment     string
 	datatypes      flagx.StringArray
@@ -66,7 +66,7 @@ func initFlags() {
 	flag.DurationVar(&bundleAgeMax, "bundle-age-max", 1*time.Hour, "maximum bundle age before it is uploaded")
 
 	// Flags related to where to watch for data (inotify events).
-	flag.StringVar(&dataHomeDir, "data-home-dir", "/var/spool", "directory pathname under which measurement data is created")
+	flag.StringVar(&localDataDir, "local-data-dir", "/var/spool", "directory pathname under which measurement data is created")
 	extensions = flagx.StringArray{".json"}
 	flag.StringVar(&experiment, "experiment", "", "required - name of the experiment (e.g., ndt)")
 	datatypes = flagx.StringArray{}

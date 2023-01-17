@@ -9,18 +9,29 @@ import (
 )
 
 var (
-	dataHomeDir = flag.String("data-home-dir", "../cmd/jostler/testdata/spool", "directory pathname under which measurement data is created")
-	experiment  = flag.String("experiment", "jostler", "name of the experiment")
-	datatype    = flag.String("datatype", "foo1", "name of the datatype")
-	nDays       = flag.Int("days", 7, "number of date subdirectories")
-	sleep       = flag.Duration("sleep", 100*time.Millisecond, "sleep time in milliseconds between file creations")
-	verbose     = flag.Bool("verbose", false, "enable verbose mode")
+	localDataDir = flag.String("local-data-dir", "../e2e/local/var/spool", "local pathname under which measurement data is created")
+	experiment   = flag.String("experiment", "", "name of the experiment")
+	datatype     = flag.String("datatype", "", "name of the datatype")
+	nDays        = flag.Int("days", 7, "number of date subdirectories")
+	sleep        = flag.Duration("sleep", 100*time.Millisecond, "sleep time in milliseconds between file creations")
+	verbose      = flag.Bool("verbose", false, "enable verbose mode")
 
 	dirs = []string{}
 )
 
 func main() {
 	flag.Parse()
+	if *experiment == "" {
+		*experiment = os.Getenv("EXPERIMENT")
+	}
+	if *datatype == "" {
+		*datatype = os.Getenv("DATATYPE")
+	}
+
+	if *experiment == "" || *datatype == "" {
+		fmt.Println("must specify both experiment and datatype") //nolint
+		os.Exit(1)
+	}
 	createDateSubdirs()
 	createDataFiles()
 }
@@ -28,7 +39,7 @@ func main() {
 func createDateSubdirs() {
 	now := time.Now()
 	for i := 0; i < *nDays; i++ {
-		dir := fmt.Sprintf("%s/%s/%s/%s", *dataHomeDir, *experiment, *datatype, now.AddDate(0, 0, -i).Format("2006/01/02"))
+		dir := fmt.Sprintf("%s/%s/%s/%s", *localDataDir, *experiment, *datatype, now.AddDate(0, 0, -i).Format("2006/01/02"))
 		if *verbose {
 			fmt.Printf("creating %s\n", dir) //nolint
 		}

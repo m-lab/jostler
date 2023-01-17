@@ -32,8 +32,10 @@ type (
 )
 
 var (
-	dtSchemaPathTemplate  = "/var/spool/datatypes/<datatype>.json"
-	tblSchemaPathTemplate = "autoload/v1/tables/<experiment>/<datatype>.table.json"
+	LocalDataDir          = "/var/spool"
+	GCSHomeDir            = "autoload/v1"
+	dtSchemaPathTemplate  = "/datatypes/<datatype>.json"
+	tblSchemaPathTemplate = "/tables/<experiment>/<datatype>.table.json"
 
 	ErrStorageClient  = errors.New("failed to create storage client")
 	ErrReadSchema     = errors.New("failed to read schema file")
@@ -66,7 +68,7 @@ func PathForDatatype(datatype string, dtSchemaFiles []string) string {
 			return (dtSchemaFiles[i])[len(datatype)+1:]
 		}
 	}
-	return strings.Replace(dtSchemaPathTemplate, "<datatype>", datatype, 1)
+	return LocalDataDir + strings.Replace(dtSchemaPathTemplate, "<datatype>", datatype, 1)
 }
 
 // ValidateSchemaFile validates the specified schema file exists and is
@@ -143,8 +145,7 @@ func diffTableSchemas(gcsClient DownloaderUploader, bucket, experiment, datatype
 	// there is nothing to validate for this datatype and the new table
 	// schema should be uploaded.
 	ctx := context.Background()
-	objPath := strings.Replace(tblSchemaPathTemplate, "<experiment>", experiment, 1)
-	objPath = strings.Replace(objPath, "<datatype>", datatype, 1)
+	objPath := tblSchemaPath(experiment, datatype)
 	// Create a storage client for downloading.
 	verbosef("downloading '%v:%v'", bucket, objPath)
 	oldTblSchemaJSON, err := gcsClient.Download(ctx, objPath)
@@ -187,6 +188,13 @@ func diffTableSchemas(gcsClient DownloaderUploader, bucket, experiment, datatype
 	return compareMaps(oldFieldsMap, newFieldsMap), nil
 }
 
+// tblSchemPath returns the GCS object name (aka path) for the given
+// experiment and datatype.
+func tblSchemaPath(experiment, datatype string) string {
+	objPath := strings.Replace(tblSchemaPathTemplate, "<experiment>", experiment, 1)
+	return GCSHomeDir + strings.Replace(objPath, "<datatype>", datatype, 1)
+}
+
 // uploadTableSchema creates a table schema for the given datatype schema
 // and uploads it to GCS.
 func uploadTableSchema(gcsClient DownloaderUploader, bucket, experiment, datatype, dtSchemaFile string) error {
@@ -195,8 +203,7 @@ func uploadTableSchema(gcsClient DownloaderUploader, bucket, experiment, datatyp
 	if err != nil {
 		return err
 	}
-	objPath := strings.Replace(tblSchemaPathTemplate, "<experiment>", experiment, 1)
-	objPath = strings.Replace(objPath, "<datatype>", datatype, 1)
+	objPath := tblSchemaPath(experiment, datatype)
 	// Create a storage client for uploading.
 	verbosef("uploading '%v:%v'", bucket, objPath)
 	if err := gcsClient.Upload(ctx, objPath, tblSchemaJSON); err != nil {

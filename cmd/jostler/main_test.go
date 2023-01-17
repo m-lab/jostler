@@ -14,11 +14,11 @@ import (
 )
 
 const (
-	testNode        = "mlab1-lga01.mlab-sandbox.measurement-lab.org"
-	testDataHomeDir = "testdata"    // typically /var/spool
-	testBucket      = "disk-bucket" // typically pusher-mlab-sandbox
-	testExperiment  = "jostler"
-	testDatatype    = "foo1"
+	testNode         = "mlab1-lga01.mlab-sandbox.measurement-lab.org"
+	testLocalDataDir = "testdata"    // typically /var/spool
+	testBucket       = "disk-bucket" // typically pusher-mlab-sandbox
+	testExperiment   = "jostler"
+	testDatatype     = "foo1"
 )
 
 // TestCLI tests non-interactive CLI invocations.
@@ -136,7 +136,7 @@ func TestCLI(t *testing.T) { //nolint:funlen,paralleltest
 			[]string{
 				"-gcs-bucket", "newclient,download,upload",
 				"-mlab-node-name", testNode,
-				"-data-home-dir", testDataHomeDir,
+				"-local-data-dir", testLocalDataDir,
 				"-experiment", testExperiment,
 				"-datatype", "foo1",
 				"-datatype-schema-file", "foo1:testdata/datatypes/foo1-valid.json",
@@ -147,7 +147,7 @@ func TestCLI(t *testing.T) { //nolint:funlen,paralleltest
 			[]string{
 				"-gcs-bucket", "newclient,download",
 				"-mlab-node-name", testNode,
-				"-data-home-dir", testDataHomeDir,
+				"-local-data-dir", testLocalDataDir,
 				"-experiment", testExperiment,
 				"-datatype", "foo1",
 				"-datatype-schema-file", "foo1:testdata/datatypes/foo1-valid.json",
@@ -158,7 +158,7 @@ func TestCLI(t *testing.T) { //nolint:funlen,paralleltest
 			[]string{
 				"-gcs-bucket", "newclient,download,upload",
 				"-mlab-node-name", testNode,
-				"-data-home-dir", testDataHomeDir,
+				"-local-data-dir", testLocalDataDir,
 				"-experiment", testExperiment,
 				"-datatype", "foo1",
 				"-datatype-schema-file", "foo1:testdata/datatypes/foo1-valid-superset.json",
@@ -169,7 +169,7 @@ func TestCLI(t *testing.T) { //nolint:funlen,paralleltest
 			[]string{
 				"-gcs-bucket", "newclient,download",
 				"-mlab-node-name", testNode,
-				"-data-home-dir", testDataHomeDir,
+				"-local-data-dir", testLocalDataDir,
 				"-experiment", testExperiment,
 				"-datatype", "foo1",
 				"-datatype-schema-file", "foo1:testdata/datatypes/foo1-valid.json",
@@ -194,7 +194,7 @@ func TestCLI(t *testing.T) { //nolint:funlen,paralleltest
 		args := test.args
 		// Use a local disk storage implementation that mimics downloads
 		// from and uploads to GCS.
-		args = append(args, "-local-disk")
+		args = append(args, []string{"-local-disk", "-gcs-home-dir", "testdata/autoload/v1"}...)
 		if testing.Verbose() {
 			args = append(args, "-verbose")
 		}
