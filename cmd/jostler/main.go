@@ -78,6 +78,8 @@ func main() {
 	if err := parseAndValidateCLI(); err != nil {
 		fatal(err)
 	}
+	schema.LocalDataDir = localDataDir
+	schema.GCSDataDir = gcsDataDir
 
 	if local {
 		if err := localMode(); err != nil {
@@ -115,11 +117,11 @@ func localMode() error {
 func daemonMode() error {
 	mainCtx, mainCancel := context.WithCancel(context.Background())
 	// Create a storage client.
-	// The localDisk flag is meant for e2e testing where we want to read
+	// The gcsLocalDisk flag is meant for e2e testing where we want to read
 	// from and write to the local disk storage instead of cloud storage.
 	var stClient schema.DownloaderUploader
 	var err error
-	if localDisk {
+	if gcsLocalDisk {
 		stClient, err = testhelper.NewClient(mainCtx, bucket)
 	} else {
 		stClient, err = gcs.NewClient(mainCtx, bucket)
@@ -179,7 +181,7 @@ func daemonMode() error {
 // specified directory and notifies its client of new (and potentially
 // missed) files.
 func startWatcher(mainCtx context.Context, mainCancel context.CancelFunc, status chan<- error, datatype string, watchEvents []notify.Event) (*watchdir.WatchDir, error) {
-	watchDir := filepath.Join(dataHomeDir, experiment, datatype)
+	watchDir := filepath.Join(localDataDir, experiment, datatype)
 	wdClient, err := watchdir.New(watchDir, extensions, watchEvents, missedAge, missedInterval)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate watcher: %w", err)
@@ -201,10 +203,10 @@ func startUploader(mainCtx context.Context, mainCancel context.CancelFunc, statu
 	}
 
 	// Create a storage client.
-	// The localDisk flag is meant for e2e testing where we want to read
+	// The gcsLocalDisk flag is meant for e2e testing where we want to read
 	// from and write to the local disk storage instead of cloud storage.
 	var stClient uploadbundle.Uploader
-	if localDisk {
+	if gcsLocalDisk {
 		stClient, err = testhelper.NewClient(mainCtx, bucket)
 	} else {
 		stClient, err = gcs.NewClient(mainCtx, bucket)
@@ -215,14 +217,14 @@ func startUploader(mainCtx context.Context, mainCancel context.CancelFunc, statu
 	gcsConf := uploadbundle.GCSConfig{
 		GCSClient: stClient,
 		Bucket:    bucket,
-		DataDir:   filepath.Join(gcsHomeDir, experiment, datatype),
+		DataDir:   filepath.Join(gcsDataDir, experiment, datatype),
 		BaseID:    fmt.Sprintf("%s-%s-%s-%s", datatype, nameParts.Machine, nameParts.Site, experiment),
 	}
 	bundleConf := uploadbundle.BundleConfig{
 		Version:   version,
 		GitCommit: gitCommit,
 		Datatype:  datatype,
-		DataDir:   filepath.Join(dataHomeDir, experiment, datatype),
+		DataDir:   filepath.Join(localDataDir, experiment, datatype),
 		SizeMax:   bundleSizeMax,
 		AgeMax:    bundleAgeMax,
 	}

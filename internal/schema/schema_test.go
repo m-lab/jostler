@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -28,28 +27,46 @@ func TestPathForDatatype(t *testing.T) { //nolint:paralleltest
 	// implementation.
 	tests := []struct {
 		bucket        string
+		localDataDir  string
 		datatype      string
 		dtSchemaFiles []string
 		want          string
 	}{
 		{
-			bucket:        "disk-bucket",
+			bucket:        "",
+			localDataDir:  "",
 			datatype:      testDatatype,
 			dtSchemaFiles: []string{"foo1:/path/to/foo1.json", "bar1:/path/to/bar1.json"},
 			want:          "/path/to/foo1.json",
 		},
 		{
-			bucket:        "disk-bucket",
+			bucket:        "",
+			localDataDir:  "",
 			datatype:      "baz1",
 			dtSchemaFiles: []string{"foo1:/path/to/foo1.json", "bar1:/path/to/bar1.json"},
 			want:          "/var/spool/datatypes/baz1.json",
 		},
+		{
+			bucket:        "",
+			localDataDir:  "/abc",
+			datatype:      "baz1",
+			dtSchemaFiles: []string{"foo1:/path/to/foo1.json", "bar1:/path/to/bar1.json"},
+			want:          "/abc/datatypes/baz1.json",
+		},
 	}
 	for i, test := range tests {
 		t.Logf("%s>>> test %02d%s", testhelper.ANSIPurple, i, testhelper.ANSIEnd)
+		var saveLocalDataDir string
+		if test.localDataDir != "" {
+			saveLocalDataDir = schema.LocalDataDir
+			schema.LocalDataDir = test.localDataDir
+		}
 		dtSchemaFile := schema.PathForDatatype(test.datatype, test.dtSchemaFiles)
 		if dtSchemaFile != test.want {
 			t.Fatalf("PathForDatatype() = %v, want: %v", dtSchemaFile, test.want)
+		}
+		if test.localDataDir != "" {
+			schema.LocalDataDir = saveLocalDataDir
 		}
 	}
 }
@@ -177,7 +194,7 @@ func TestValidateAndUpload(t *testing.T) { //nolint:paralleltest,funlen
 	}()
 	for i, test := range tests {
 		if test.rmTblSchemaFile {
-			os.RemoveAll(filepath.Join("testdata", test.tblSchemaFile))
+			os.RemoveAll(test.tblSchemaFile)
 		}
 		var s string
 		if test.wantErr == nil {

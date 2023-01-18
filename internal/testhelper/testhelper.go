@@ -80,9 +80,6 @@ func NewClient(ctx context.Context, bucket string) (*StorageClient, error) {
 // Download mimics downloading from GCS.
 func (d *StorageClient) Download(ctx context.Context, objPath string) ([]byte, error) {
 	fmt.Printf("StorageClient.Download(): d.bucket=%v objPath=%v\n", d.bucket, objPath) //nolint:forbidigo
-	if !strings.HasPrefix(objPath, "testdata") {
-		objPath = filepath.Join("testdata", objPath)
-	}
 	if !strings.Contains(d.bucket, "download") {
 		panic("unexpected call to Download()")
 	}
@@ -102,9 +99,6 @@ func (d *StorageClient) Download(ctx context.Context, objPath string) ([]byte, e
 // Upload mimics uploading to GCS.
 func (d *StorageClient) Upload(ctx context.Context, objPath string, contents []byte) error {
 	fmt.Printf("StorageClient.Upload(): d.bucket=%v objPath=%v len(contents)=%v\n", d.bucket, objPath, len(contents)) //nolint:forbidigo
-	if !strings.HasPrefix(objPath, "testdata") {
-		objPath = filepath.Join("testdata", objPath)
-	}
 	if !strings.Contains(d.bucket, "upload") {
 		panic("unexpected call to Upload()")
 	}

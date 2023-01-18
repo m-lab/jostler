@@ -1,4 +1,4 @@
-There are two files in this test directory to help with integration
+There are three files in this test directory to help with integration
 and e2e testing.
 
 1. schema.sh is a bash script that can be used for testing table schema
@@ -8,50 +8,38 @@ and e2e testing.
 2. data.go is a very simple Go program that mimics a measurement service
    by creating measurement data files for jostler to bundle and upload.
 
-data.go can be started in one terminal and jostler can be started in
-another terminal as follows:
+3. e2e.sh is a bash script to invoke jostler with the right parameters
+   for e2e testing.
+
+The easiest way to do e2e testing is to run jostler in one terminal and
+run data.go in another terminal as shown below:
+
 
 [Term A]
-$ pwd
-.../jostler
-$ cd test
-$ go run data.go -sleep 1s
+$ cd /path/to/your/jostler/directory
+$ EXPERIMENT=experiment DATATYPE=datatype1 ./test/e2e.sh
+
+Because e2e.sh invokes jostler with the -gcs-local-disk flag, jostler will
+use testhelper's local disk storage implementation which mimics downloads
+from and uploads to cloud storage (GCS).  This makes testing and debugging
+a lot easier.
 
 
 [Term B]
-$ pwd
-.../jostler
-$ mkdir -p cmd/jostler/testdata/spool/jostler/foo1
-$ go build -o . ./cmd/jostler
-$ ./jostler \
-	-local-disk \
-	-mlab-node-name ndt-mlab1-lga01.mlab-sandbox.measurement-lab.org \
-	-gcs-bucket newclient,download,upload \
-	-data-home-dir $(pwd)/cmd/jostler/testdata/spool \
-	-experiment jostler \
-	-datatype foo1 \
-	-datatype-schema-file foo1:cmd/jostler/testdata/datatypes/foo1-valid.json \
-	-bundle-size-max 1024 \
-	-bundle-age-max 10s \
-	-missed-age 20s \
-	-missed-interval 15s
-
-Because the -local-disk flag is specified, jostler will use testhelper's local
-disk storage implementation which mimics downloads from and uploads to
-cloud storage (GCS).  This makes testing and debugging a lot easier.
+$ cd /path/to/your/jostler/directory/test
+$ EXPERIMENT=experiment DATATYPE=datatype1 go run data.go -sleep 1s -verbose
 
 
 [Term C]
-$ pwd
-.../jostler
-$ while :; do tree testdata cmd/jostler/testdata/spool; sleep 1; done
+$ cd /path/to/your/jostler/directory
+$ while :; do tree e2e; sleep 3; done
 
 You will see that data files are created by test/data.go in the
 subdirectories of:
 
-	.../jostler/cmd/jostler/testdata/spool/jostler/foo1/<yyyy>/<mm>/
+	e2e/local/var/spool/$EXPERIMENT/$DATATYPE/<yyyy>/<mm>/<dd>
 
-and are deleted by jostler after they are bundled and "uploaded" to the
-subdirectories of:
+and are deleted by jostler after bundles and their indices are "uploaded" to the
+following directory:
 
-	.../jostler/testdata/autoload/v1/jostler/foo1/date=<yyyy>-<mm>-<dd>
+	e2e/gcs/autoload/v1/$EXPERIMENT/$DATAYPE/date=<yyyy>-<mm>-<dd>
