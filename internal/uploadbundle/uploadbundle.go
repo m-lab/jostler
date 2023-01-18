@@ -11,9 +11,13 @@
 //  3. In proper JSON format with ".json" extension.
 //  4. Be smaller than the maximum size of a bundle (BundleConfig.SizeMax).
 //
-// Bundle objects uploaded to GCS follow this naming convention:
+// GCS object names of JSONL bundles and their corresponding indices
+// have the following format:
 //
-//	<BundleConfig.DataDir>/date=<yyyy>-<mm>-<dd>/<timestamp>-<BaseID>.jsonl.gz
+//	autoload/v1/<experiment>/<datatype>/date=<yyyy>-<mm>-<dd>/<timestamp>-<datatype>-<node-name>-<experiment>.jsonl.gz
+//	|--------GCSConfig.DataDir--------|                                   |---------GCSConfig.BaseID--------|
+//	autoload/v1/<experiment>/index1/date=<yyyy>-<mm>-<dd>/<timestamp>-<datatype>-<node-name>-<experiment>.index.gz
+//	|------GCSConfig.IndexDir-----|                                   |---------GCSConfig.BaseID--------|
 package uploadbundle
 
 import (
@@ -56,18 +60,14 @@ type Uploader interface {
 }
 
 // GCSConfig defines GCS configuration options.
-//
-// GCS object names of JSONL bundles have the following format:
-// autoload/v1/<experiment>/<datatype>/date=<yyyy>-<mm>-<dd>/<timestamp>-<datatype>-<node-name>-<experiment>.jsonl.gz
-// |------------DataDir--------------|                                   |-------------BaseID--------------|
-//
 // Note that while slashes ("/") in GCS object names create the illusion
 // of a directory hierarchy, GCS has a flat namesapce.
 type GCSConfig struct {
 	GCSClient Uploader
 	Bucket    string // GCS bucket name
-	DataDir   string // see the above comment
-	BaseID    string // see the above comment
+	DataDir   string // see the comment at the top of this file
+	IndexDir  string // see the comment at the top of this file
+	BaseID    string // see the comment at the top of this file
 }
 
 // BundleConfig defines bundle configuration options.
@@ -75,7 +75,7 @@ type BundleConfig struct {
 	Version   string        // version of this program producing the bundle (e.g., v0.1.7)
 	GitCommit string        // git commit SHA1 of this program (e.g., 2abe77f)
 	Datatype  string        // datatype (e.g., scamper1)
-	DataDir   string        // path to datatype subdirectory on local disk (e.g., /var/spool/<experiment>/<datatype>)
+	SpoolDir  string        // path to datatype subdirectory on local disk (e.g., /var/spool/<experiment>/<datatype>)
 	SizeMax   uint          // bundle will be uploaded when it reaches this size
 	AgeMax    time.Duration // bundle will be uploaded when it reaches this age
 }
@@ -111,7 +111,7 @@ func New(ctx context.Context, wdClient DirWatcher, gcsConf GCSConfig, bundleConf
 	if wdClient == nil || reflect.ValueOf(wdClient).IsNil() {
 		return nil, fmt.Errorf("%w: nil watchdir client", ErrConfig)
 	}
-	if gcsConf.GCSClient == nil || gcsConf.Bucket == "" || gcsConf.DataDir == "" || gcsConf.BaseID == "" || bundleConf.DataDir == "" {
+	if gcsConf.GCSClient == nil || gcsConf.Bucket == "" || gcsConf.DataDir == "" || gcsConf.BaseID == "" || bundleConf.SpoolDir == "" {
 		return nil, fmt.Errorf("%w: nil or empty string in GCS configuration", ErrConfig)
 	}
 	ub := &UploadBundle{
@@ -122,7 +122,7 @@ func New(ctx context.Context, wdClient DirWatcher, gcsConf GCSConfig, bundleConf
 		activeBundles: make(map[string]*jsonlbundle.JSONLBundle, weekDays),
 		uploadBundles: make(map[string]struct{}, numUploads),
 	}
-	ub.bundleConf.DataDir = filepath.Clean(ub.bundleConf.DataDir)
+	ub.bundleConf.SpoolDir = filepath.Clean(ub.bundleConf.SpoolDir)
 	return ub, nil
 }
 
@@ -132,12 +132,12 @@ func New(ctx context.Context, wdClient DirWatcher, gcsConf GCSConfig, bundleConf
 // provides timer notifications for in-memory bundles that have reached
 // their maximum age and should be uploaded to GCS.
 func (ub *UploadBundle) BundleAndUpload(ctx context.Context) error {
-	verbose("bundling and uploading files in %v", ub.bundleConf.DataDir)
+	verbose("bundling and uploading files in %v", ub.bundleConf.SpoolDir)
 	done := false
 	for !done {
 		select {
 		case <-ctx.Done():
-			verbose("'bundle and upload' context canceled for %v", ub.bundleConf.DataDir)
+			verbose("'bundle and upload' context canceled for %v", ub.bundleConf.SpoolDir)
 			done = true
 		case watchEvent, chOpen := <-ub.wdClient.WatchChan():
 			if !chOpen {
@@ -206,7 +206,7 @@ func (ub *UploadBundle) bundleFile(ctx context.Context, fullPath string) {
 // ("yyyy/mm/dd") and the file size.
 func (ub *UploadBundle) fileDetails(fullPath string) (string, int64, error) {
 	cleanFilePath := filepath.Clean(fullPath)
-	dataDir := ub.bundleConf.DataDir
+	dataDir := ub.bundleConf.SpoolDir
 	if !strings.HasPrefix(cleanFilePath, dataDir) {
 		return "", 0, fmt.Errorf("%v: %w", cleanFilePath, ErrNotInDataDir)
 	}
@@ -255,7 +255,7 @@ func (ub *UploadBundle) newJSONLBundle(dateSubdir string) *jsonlbundle.JSONLBund
 		log.Printf("INTERNAL ERROR: key %v returned active %v", dateSubdir, jb.Description())
 	}
 
-	jb := jsonlbundle.New(ub.gcsConf.Bucket, ub.gcsConf.DataDir, ub.gcsConf.BaseID, ub.bundleConf.Datatype, dateSubdir)
+	jb := jsonlbundle.New(ub.gcsConf.Bucket, ub.gcsConf.DataDir, ub.gcsConf.IndexDir, ub.gcsConf.BaseID, ub.bundleConf.Datatype, dateSubdir)
 	ub.activeBundles[dateSubdir] = jb
 	verbose("created active %v", jb.Description())
 	time.AfterFunc(ub.bundleConf.AgeMax, func() {
@@ -286,6 +286,9 @@ func (ub *UploadBundle) uploadBundle(ctx context.Context, jb *jsonlbundle.JSONLB
 	if _, ok := ub.activeBundles[jb.DateSubdir]; !ok {
 		log.Printf("INTERNAL ERROR: %v not in active bundles map", jb.Description())
 	}
+	if len(jb.Lines) != len(jb.Index)+len(jb.BadFiles) {
+		log.Printf("INTERNAL ERROR: %v != %v + %v", len(jb.Lines), len(jb.Index), len(jb.BadFiles))
+	}
 
 	// Add the bundle to upload bundles map.
 	ub.uploadBundles[jb.Timestamp] = struct{}{}
@@ -303,16 +306,24 @@ func (ub *UploadBundle) uploadBundle(ctx context.Context, jb *jsonlbundle.JSONLB
 func (ub *UploadBundle) uploadInBackground(ctx context.Context, jb *jsonlbundle.JSONLBundle, ack bool) {
 	gcsClient := ub.gcsConf.GCSClient
 	go func(jb *jsonlbundle.JSONLBundle) {
-		// Upload the bundle.
-		objPath := filepath.Join(jb.ObjDir, jb.ObjName)
+		var err error
+		// Upload the measurement data.
+		objPath := filepath.Join(jb.BundleDir, jb.BundleName)
 		contents := []byte(strings.Join(jb.Lines, "\n"))
-		if err := gcsClient.Upload(ctx, objPath, contents); err != nil {
+		verbose("uploading measurement data %v", objPath)
+		if err = gcsClient.Upload(ctx, objPath, contents); err != nil {
 			log.Printf("ERROR: failed to upload bundle %v: %v\n", jb.Description(), err)
 			return
 		}
-		objPath = filepath.Join(jb.ObjDir, jb.IdxName)
-		contents = []byte(strings.Join(jb.FullPaths, "\n"))
-		if err := gcsClient.Upload(ctx, objPath, contents); err != nil {
+		// Upload the index.
+		objPath = filepath.Join(jb.IndexDir, jb.IndexName)
+		contents, err = jb.MarshalIndex()
+		if err != nil {
+			log.Printf("ERROR: failed to marshal index for bundle %v: %v\n", jb.Description(), err)
+			return
+		}
+		verbose("uploading index %v", objPath)
+		if err = gcsClient.Upload(ctx, objPath, contents); err != nil {
 			log.Printf("ERROR: failed to upload index for bundle %v: %v\n", jb.Description(), err)
 			return
 		}
@@ -320,7 +331,7 @@ func (ub *UploadBundle) uploadInBackground(ctx context.Context, jb *jsonlbundle.
 		jb.RemoveLocalFiles()
 		// Tell directory watcher we're done with these files.
 		if ack {
-			ub.wdClient.WatchAckChan() <- append(jb.FullPaths, jb.BadFiles...)
+			ub.wdClient.WatchAckChan() <- append(jb.IndexFilenames(), jb.BadFiles...)
 		}
 	}(jb)
 }
