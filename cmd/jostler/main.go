@@ -79,7 +79,7 @@ func main() {
 		fatal(err)
 	}
 	schema.LocalDataDir = localDataDir
-	schema.GCSHomeDir = gcsHomeDir
+	schema.GCSDataDir = gcsDataDir
 
 	if local {
 		if err := localMode(); err != nil {
@@ -117,11 +117,11 @@ func localMode() error {
 func daemonMode() error {
 	mainCtx, mainCancel := context.WithCancel(context.Background())
 	// Create a storage client.
-	// The localDisk flag is meant for e2e testing where we want to read
+	// The gcsLocalDisk flag is meant for e2e testing where we want to read
 	// from and write to the local disk storage instead of cloud storage.
 	var stClient schema.DownloaderUploader
 	var err error
-	if localDisk {
+	if gcsLocalDisk {
 		stClient, err = testhelper.NewClient(mainCtx, bucket)
 	} else {
 		stClient, err = gcs.NewClient(mainCtx, bucket)
@@ -203,10 +203,10 @@ func startUploader(mainCtx context.Context, mainCancel context.CancelFunc, statu
 	}
 
 	// Create a storage client.
-	// The localDisk flag is meant for e2e testing where we want to read
+	// The gcsLocalDisk flag is meant for e2e testing where we want to read
 	// from and write to the local disk storage instead of cloud storage.
 	var stClient uploadbundle.Uploader
-	if localDisk {
+	if gcsLocalDisk {
 		stClient, err = testhelper.NewClient(mainCtx, bucket)
 	} else {
 		stClient, err = gcs.NewClient(mainCtx, bucket)
@@ -217,7 +217,7 @@ func startUploader(mainCtx context.Context, mainCancel context.CancelFunc, statu
 	gcsConf := uploadbundle.GCSConfig{
 		GCSClient: stClient,
 		Bucket:    bucket,
-		DataDir:   filepath.Join(gcsHomeDir, experiment, datatype),
+		DataDir:   filepath.Join(gcsDataDir, experiment, datatype),
 		BaseID:    fmt.Sprintf("%s-%s-%s-%s", datatype, nameParts.Machine, nameParts.Site, experiment),
 	}
 	bundleConf := uploadbundle.BundleConfig{

@@ -19,7 +19,7 @@ run data.go in another terminal as shown below:
 $ cd /path/to/your/jostler/directory
 $ EXPERIMENT=experiment DATATYPE=datatype1 ./test/e2e.sh
 
-Because e2e.sh invokes jostler with the -local-disk flag, jostler will
+Because e2e.sh invokes jostler with the -gcs-local-disk flag, jostler will
 use testhelper's local disk storage implementation which mimics downloads
 from and uploads to cloud storage (GCS).  This makes testing and debugging
 a lot easier.

@@ -33,7 +33,7 @@ type (
 
 var (
 	LocalDataDir          = "/var/spool"
-	GCSHomeDir            = "autoload/v1"
+	GCSDataDir            = "autoload/v1"
 	dtSchemaPathTemplate  = "/datatypes/<datatype>.json"
 	tblSchemaPathTemplate = "/tables/<experiment>/<datatype>.table.json"
 
@@ -192,7 +192,7 @@ func diffTableSchemas(gcsClient DownloaderUploader, bucket, experiment, datatype
 // experiment and datatype.
 func tblSchemaPath(experiment, datatype string) string {
 	objPath := strings.Replace(tblSchemaPathTemplate, "<experiment>", experiment, 1)
-	return GCSHomeDir + strings.Replace(objPath, "<datatype>", datatype, 1)
+	return GCSDataDir + strings.Replace(objPath, "<datatype>", datatype, 1)
 }
 
 // uploadTableSchema creates a table schema for the given datatype schema

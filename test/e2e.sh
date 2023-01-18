@@ -1,5 +1,13 @@
 #!/bin/bash
 
+# This is a helper script for e2e testing by performing the following:
+#
+#   1. Building jostler.
+#   2. Creating the required directories and files.
+#   3. Invoking jostler.
+#
+# See README.txt in this directory for additional details.
+
 set -eux
 
 if [[ -z "$EXPERIMENT" || -z "$DATATYPE" ]]; then
@@ -19,10 +27,10 @@ cp cmd/jostler/testdata/datatypes/foo1-valid.json $E2E_DATATYPE_SCHEMA_DIR/$DATA
 git clean -ndx
 
 ./jostler \
-	-local-disk \
+	-gcs-local-disk \
 	-mlab-node-name $EXPERIMENT-mlab1-lga01.mlab-sandbox.measurement-lab.org \
 	-gcs-bucket newclient,download,upload \
-	-gcs-home-dir e2e/gcs/autoload/v1 \
+	-gcs-data-dir e2e/gcs/autoload/v1 \
 	-local-data-dir $E2E_SPOOL_DIR \
 	-experiment $EXPERIMENT \
 	-datatype $DATATYPE \

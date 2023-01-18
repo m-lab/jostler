@@ -20,7 +20,7 @@ import (
 var (
 	// Flags related to GCS.
 	bucket       string
-	gcsHomeDir   string
+	gcsDataDir   string
 	mlabNodeName string
 
 	// Flags related to bundles.
@@ -39,7 +39,7 @@ var (
 	// Flags related to program's execution.
 	local        bool
 	verbose      bool
-	localDisk    bool
+	gcsLocalDisk bool
 	testInterval time.Duration
 
 	// Errors related to command line parsing and validation.
@@ -57,7 +57,7 @@ var (
 func initFlags() {
 	// Flags related to GCS.
 	flag.StringVar(&bucket, "gcs-bucket", "", "required - GCS bucket name")
-	flag.StringVar(&gcsHomeDir, "gcs-home-dir", "autoload/v1", "home directory in GCS bucket under which bundles will be uploaded")
+	flag.StringVar(&gcsDataDir, "gcs-data-dir", "autoload/v1", "home directory in GCS bucket under which bundles will be uploaded")
 	flag.StringVar(&mlabNodeName, "mlab-node-name", "", "required - node name specified directly or via MLAB_NODE_NAME env variable")
 
 	// Flags related to bundles.
@@ -76,7 +76,7 @@ func initFlags() {
 	// Flags related to program's execution.
 	flag.BoolVar(&local, "local", false, "run locally and create schema files for each datatype")
 	flag.BoolVar(&verbose, "verbose", false, "enable verbose mode")
-	flag.BoolVar(&localDisk, "local-disk", false, "use local disk storage instead of cloud storage (for test purposes only)")
+	flag.BoolVar(&gcsLocalDisk, "gcs-local-disk", false, "use local disk storage instead of cloud storage (for test purposes only)")
 	flag.DurationVar(&testInterval, "test-interval", 0, "time interval to stop running (for test purposes only)")
 
 	flag.Var(&dtSchemaFiles, "datatype-schema-file", "schema for each datatype in the format <datatype>:<pathname>")
