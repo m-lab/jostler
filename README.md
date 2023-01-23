@@ -596,15 +596,12 @@ open without writing to it for more than a few minutes.
 
 ## Related Material
 
-* [2022-06 Milestone: Autoloading JSONL Archives](https://docs.google.com/document/d/11JlNycv8SiroNYmEqTjoFBSknUW7oPTncVAO4Wibnw0/edit#heading=h.8ecgnv6kw0ur)
-* [2021-03 Design: Standard Top-level BigQuery Columns](https://docs.google.com/document/d/1WkQiukzgWjlIslcarXvyzAcx_rhwmnjDSi8brXS6iAw/edit#heading=h.qid3osrp8ord)
-* [2018-12 Design: Uniform Names: Experiments by Any Other Name](https://docs.google.com/document/d/1BPt11RK5x6FZTXvWbZaC_GhSlH9vHzhrRP6ca0TBosI/edit#)
+* [Pusher Design Document](https://github.com/m-lab/pusher/blob/main/DESIGN.md)
 * [BigQuery - Overview of Cloud Storage](https://cloud.google.com/bigquery-transfer/docs/cloud-storage-transfer-overview)
 * [BigQuery - Loading JSON data from Cloud Storage](https://cloud.google.com/bigquery/docs/loading-data-cloud-storage-json)
 * [BigQuery - Loading nested and repeated JSON](https://cloud.google.com/bigquery/docs/loading-data-cloud-storage-json#loading_nested_and_repeated_json_data)
 * [BigQuery - Batch loading data](https://cloud.google.com/bigquery/docs/batch-loading-data)
-* [Pusher Design Document](https://github.com/m-lab/pusher/blob/main/DESIGN.md)
-* [Quotas and limits | BigQuery | Google Cloud](https://cloud.google.com/bigquery/quotas#load_jobs) 
+* [BigQuery - Quotas and limits](https://cloud.google.com/bigquery/quotas#load_jobs) 
 
 # APPENDIX
 
