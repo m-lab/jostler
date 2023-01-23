@@ -3,18 +3,18 @@
 ## 1. Objective
 
 Deploy measurement services with fast publication of measurement data
-to BigQuery (“**autoloading**”) by obviating the need to parse and
+to BigQuery (**autoloading**) by obviating the need to parse and
 process measurement data. Operator intervention should be minimal.
 
 ## 2. Scope
 
 The scope of this design is limited to _new measurement services_
-(“**new service**” to be deployed in the M-Lab platform that
-will generate _new measurement data format_ (“**new format**”)
+(**new service** to be deployed in the M-Lab platform that
+will generate _new measurement data format_ (**new format**)
 that conform to the requirements of [Loading JSON data from Cloud
 Storage](https://cloud.google.com/bigquery/docs/loading-data-cloud-storage-json).
 
-For now, all measurement data produced by the M-Lab’s _existing_
+For now, all measurement data produced by the M-Lab's _existing_
 measurement services will continue to be parsed and processed as they
 currently are.  Once autoloading is fully operational, the existing
 measurement services may also benefit from this simplification.
@@ -22,17 +22,13 @@ measurement services may also benefit from this simplification.
 ## 3. Terminology
 
 **Field**: A JSON field in data mapping to a column in a BigQuery table.
-
-**Column: **A BigQuery table column storing a JSON field value.
-
+**Column**: A BigQuery table column storing a JSON field value.
 **Experiment**: Synonym for measurement service (e.g., NDT)
-
 **Datatype**: The name and version of measurement data that specifies
-its structure (“**datatype schema**”).  For example, `ndt5` is NDT
+its structure (**datatype schema**).  For example, `ndt5` is NDT
 protocol 5 and `ndt7` is NDT protocol 7.
-
 **Bundle**: A collection of measurement data files in a single file in
-JSON Lines (“**JSONL**”) format
+JSON Lines (**JSONL**) format
 
 **Node name**: Combination of machine name and site name (e.g., `mlab3-par05`)
 
@@ -64,28 +60,28 @@ From a measurement perspective, the current M-Lab architecture consists
 of the following components:
 
 * Measurement platform consisting of physical and virtual machines
-(“**nodes**”)
+(**nodes**)
 * Cloud Storage (GCS) buckets 
-* ETL data pipeline (“**pipeline**”)
+* ETL data pipeline (**pipeline**)
 * BigQuery tables and views
 
-The measurement platform collects measurement data (“**data**”) from
+The measurement platform collects measurement data (**data**) from
 running measurement services and uploads archives of data in compressed
 tar format to GCS as shown in the following diagram.  The agent that
 creates archives of data in the platform nodes and uploads them to GCS
-is M-Lab’s <code>[pusher](https://github.com/m-lab/pusher)</code>.
+is M-Lab's <code>[pusher](https://github.com/m-lab/pusher)</code>.
 
 The pipeline, in turn, consists of several components and stages to
-parse the uploaded archives and load archive’s data into BigQuery.
+parse the uploaded archives and load archive's data into BigQuery.
 For example, the following diagram shows how the pipeline processes data
 produced by [NDT](https://www.measurementlab.net/tests/ndt/) measurements.
 
-1. Pipeline’s <code>[parser](https://github.com/m-lab/etl/tree/main/parser)</code>
+1. Pipeline's <code>[parser](https://github.com/m-lab/etl/tree/main/parser)</code>
 reads from the public archive and writes JSONL results to temporary GCS.
 2. Pipeline loads JSONL from GCS into temporary tables in BigQuery.
-3. Pipeline’s <code>gardener</code> performs deduplication from
+3. Pipeline's <code>gardener</code> performs deduplication from
 temporary to raw tables.
-4. Pipeline’s <code>gardener</code> materializes join of raw
+4. Pipeline's <code>gardener</code> materializes join of raw
 <code>ndt7</code> and raw <code>annotation</code>.
 
 Because BigQuery supports loading data in JSONL format from GCS, it
@@ -102,20 +98,22 @@ refers to a _table_ schema where the table name is the datatype name.
 
 A datatype schema is the schema of the measurement data whereas a table
 schema is the schema of a BigQuery table that by convention includes
-M-Lab’s standard columns, with the datatype schema in its `raw` field.
-For example, the `scamper1` _table_ includes M-Lab’s standard columns
+M-Lab's standard columns, with the datatype schema in its `raw` field.
+For example, the `scamper1` _table_ includes M-Lab's standard columns
 `id`, `parser`, `date`, and `raw`, and the `raw` column contains the
 `scamper1` _datatype_.
 
 A BigQuery _table schema_, then, is the sum of _M-Lab standard columns
 schema_ and the _datatype schema_.  That is:
 
-	<code>table schema <strong>=</strong> M-Lab standard columns schema <strong>+</strong> datatype schema</code>
+```
+	table schema = M-Lab standard columns schema + datatype schema
+```
 
 Note that measurement data that is _not_ generated on M-Lab nodes (e.g.,
-Cloudflare’s speed data) will not include all M-Lab standard columns.
+Cloudflare's speed data) will not include all M-Lab standard columns.
 
-BigQuery tables are identified as `&lt;project>:&lt;dataset>.&lt;table>`.
+BigQuery tables are identified as `<project>:<dataset>.<table>`.
 As mentioned earlier, by convention, table names have the same as the
 datatype they store.  For example, the `mlab-oti:ndt.ndt7` table stores
 `ndt7` datatype, and you can use the following command to see its schema:
@@ -168,9 +166,9 @@ measurements and requirements that must be met by M-Lab architecture.
 
 ### 6.1. Third-Party requirements
 
-The words “should” and “must” in the following lines should be
+The words should and must in the following lines should be
 interpreted as defined [here](https://www.ietf.org/rfc/rfc2119.txt).
-M-Lab’s website has an [Experiment
+M-Lab's website has an [Experiment
 Requirements](https://www.measurementlab.net/experimenter-requirements-guidelines/#experiment-requirements)
 section that includes many of the following requirements.
 
@@ -186,7 +184,7 @@ The new measurements:
 5. MUST generate filenames with the alphabet, numbers, underscore (_), colon (:), period (.), and dash (-); the filename should start with an alphanumeric character and cannot have more than one period in a row.
 6. MUST not re-open new format files for writing.
 7. MUST not keep a file open without writing to it for more than a few
-minutes (see the section “Missed data files” for the reason).
+minutes (see the section Missed data files for the reason).
 8. MUST not reuse new format filenames (i.e., each new format filename must be unique).
 9. MUST not assume that new format and any other files it creates will persist on the local disk for any duration of time because local files will be deleted after a bundle is uploaded to GCS.
 
@@ -199,11 +197,11 @@ minutes (see the section “Missed data files” for the reason).
 5. Autoloading MUST parse new format contents to verify it is well-formed JSON.
 6. Autoloading MUST copy individual new format contents into a compressed JSONL bundle and upload the bundle to predefined GCS buckets `{pusher|jostler}-mlab-{sandbox,staging,oti}.`
 7. Autoloading MUST follow the [existing conventions for GCS object names](https://cloud.google.com/storage/docs/naming-objects).
-8. Autoloading SHOULD conform to the conventions of M-Lab’s [Standard Top-Level BigQuery Columns](https://docs.google.com/document/d/1WkQiukzgWjlIslcarXvyzAcx_rhwmnjDSi8brXS6iAw/edit#heading=h.qid3osrp8ord) (“**standard columns**”) and, in particular, the section “Raw Top-Level Columns” except for the “parser” column.
+8. Autoloading SHOULD conform to the conventions of M-Lab's [Standard Top-Level BigQuery Columns](https://docs.google.com/document/d/1WkQiukzgWjlIslcarXvyzAcx_rhwmnjDSi8brXS6iAw/edit#heading=h.qid3osrp8ord) (**standard columns**) and, in particular, the section Raw Top-Level Columns except for the parser column.
 9. Pipeline SHOULD automatically detect new files that are uploaded to predefined GCS buckets.
 10. Loading of new datatypes MUST happen automatically.
     1. This includes noticing and applying compatible schema updates
-11. Updates to the “archive” buckets in GCS MUST be reflected in the corresponding BigQuery tables within the following time periods:
+11. Updates to the archive buckets in GCS MUST be reflected in the corresponding BigQuery tables within the following time periods:
     2. Three hours for files uploaded within the last 2 days.
     3. One week for files uploaded within the last 2 months.
     4. One month for the entire archive.
@@ -230,11 +228,11 @@ JSONL bundle) that is compressed before uploading.
 
 As mentioned earlier, the existing uploader agent for the existing
 measurement services that creates archives of data and uploads them
-to GCS is M-Lab’s `pusher`.  To support autoloading, we can extend
+to GCS is M-Lab's `pusher`.  To support autoloading, we can extend
 the functionality of `pusher` to recognize the new format and treat
 it differently from the existing data but changing `pusher` is risky
 as it processes _millions_ of files on a daily basis.  A disruption
-in `pusher`’s operation can potentially lead to major data loss or
+in `pusher`'s operation can potentially lead to major data loss or
 time-consuming manual processes to restore operation.  It is therefore
 preferable to write a new uploader agent in order to avoid disruptions to
 the current measurements.  Once the new agent is fully functional and has
@@ -242,7 +240,7 @@ reached production quality, we can decide if it would be beneficial to
 integrate the tools together.  We call the new uploader agent `jostler`
 to differentiate it from `pusher`.
 
-### 7.2. Differences between `pusher` and `jostler`
+#### 7.1.1. Differences between `pusher` and `jostler`
 
 There are several differences between the two uploader agents as follows:
 
@@ -261,18 +259,17 @@ BigQuery table schema which is uploaded as a predefined object to GCS.
 The index will make it very convenient to find out which bundle contains
 a particular new format file.
 
-## 7.3.`jostler` operation
+### 7.2.`jostler` operation
 
 `jostler` will support two modes of operation:
 
-1. A **short-lived interactive “local” mode** to create a BigQuery
+1. A **short-lived interactive local mode** to create a BigQuery
 table schema file for a given datatype.  As mentioned before, the
 table schema file is built using the standard columns and the datatype
 schema. This mode is mainly meant for an operator to examine and verify
 the table schema before creating a table.
-
-2. A **long-lived non-interactive “daemon” mode** to serve as an
-upload agent on M-Lab’s nodes.
+2. A **long-lived non-interactive daemon mode** to serve as an
+upload agent on M-Lab's nodes.
 
 In the long-lived non-interactive mode, `jostler` will run as a sidecar
 container of the new measurement container.  The new measurements
@@ -288,7 +285,7 @@ filesystem new format and other files that the new measurement generated.
 As mentioned earlier, any files that were not included in a bundle due to
 any error such as wrong extension (not `.json`), read error, or invalid
 JSON will also be deleted from the local filesystem in order to avoid
-filling up the node’s disk space.
+filling up the node's disk space.
 
 There are two configurable parameters that control triggering of an
 upload operation:
@@ -299,7 +296,7 @@ upload operation:
 Once a bundle reaches its maximum allowable size or age, it will be
 uploaded to GCS.
 
-## 7.4. Bundle names
+### 7.3. Bundle names
 
 As mentioned in the requirements, the location of new format files is
 predefined in the new measurement container as follows:
@@ -325,21 +322,21 @@ can see below:
     $ gsutil ls gs://pusher-mlab-oti/ndt/scamper1/2022/09/12
     gs://pusher-mlab-oti/ndt/scamper1/2022/09/12/20220912T143138.409697Z-scamper1-mlab2-gru01-ndt.tgz
     gs://pusher-mlab-oti/ndt/scamper1/2022/09/12/20220912T143139.800575Z-scamper1-mlab3-gig03-ndt.tgz
-    …
+    ...
 ```
 
 `jostler` will upload JSONL bundles to a GCS bucket specified by
-a flag which can be the same as the current `pusher`’s buckets
-`pusher-mlab-{sandbox,staging,oti}`.  And because `jostler`’s
-GCS object names have the `autoload/&lt;version>` prefix before
-`&lt;experiment>/&lt;datatype>/…` they will be easily distinguished from
-`pusher`’s objects:
+a flag which can be the same as the current `pusher`'s buckets
+`pusher-mlab-{sandbox,staging,oti}`.  And because `jostler`'s
+GCS object names have the `autoload/<version>` prefix before
+`<experiment>/<datatype>/...` they will be easily distinguished from
+`pusher`'s objects:
 
 ```
     autoload/<version>/<experiment>/<datatype>/<yyyy>/<mm>/<dd>
 ```
 
-The purpose of `autoload/&lt;version>` in the prefix of the object name
+The purpose of `autoload/<version>` in the prefix of the object name
 is to support breaking changes to autoloading implementation.
 
 Each bundle will have the following naming convention:
@@ -349,14 +346,14 @@ Each bundle will have the following naming convention:
     <prefix>/<timestamp>-<datatype>-<node-name>-<experiment>.jsonl.gz
 ```
 
-## 7.5. Bundle contents
+### 7.4. Bundle contents
 
-#### 7.5.2. Standard columns
+#### 7.4.1. Standard columns
 
 Each bundle will consist of individual JSON objects (new format files),
 one per line, and each line will include a subset of standard columns
 in the first version (v1) of autoloading.  With respect to the standard
-columns, it’s important to highlight the following:
+columns, it's important to highlight the following:
 
 
 * Since the main objective of autoloading is to avoid parsing, there
@@ -397,7 +394,7 @@ abbreviated, and showing standard column names in boldface:
       }
     }
     {
-      "date": "2022/09/29", "archiver": {…},
+      "date": "2022/09/29", "archiver": {...},
       "raw": {
         "UUID": "3456",
         "MeasurementVersion": "0.1.2",
@@ -405,7 +402,7 @@ abbreviated, and showing standard column names in boldface:
       }
     }
     {
-      "date": "2022/09/29", "archiver": {…},
+      "date": "2022/09/29", "archiver": {...},
       "raw": {
         "UUID": "4567",
         "MeasurementVersion": "0.1.2",
@@ -416,7 +413,7 @@ abbreviated, and showing standard column names in boldface:
 
 ```
 
-* **<code>date</code></strong> is the date component of the directory
+* <strong><code>date</code></strong> is the date component of the directory
 pathname where new format files were discovered.  For example,
 the <code>date</code> field of the bundle that contains new format
 files in <code>/var/spool/ndt/foo1/2022/09/29</code> will be
@@ -436,8 +433,7 @@ Notice that not all data fields are necessarily included in each
 shows that <code>Field2</code> and <code>Field1</code> are missing from
 the first and the second new format files respectively.
 
-
-## 7.6. Datatype schema
+### 7.5. Datatype schema
 
 As mentioned in the [Requirements](#heading=h.x9xgmk803y95), new
 measurements should provide the schema of their measurement data as a
@@ -445,7 +441,7 @@ file in JSON format.
 
 When `jostler` starts, it looks for datatype schema files of each
 specified datatype, generates the corresponding BigQuery table schema
-(which includes M-Lab’s standard columns), and uploads the table schema
+(which includes M-Lab's standard columns), and uploads the table schema
 files to GCS.  The location of a datatype schema file can be specified via
 a command line flag (`-datatype-schema-file`) but its default location is:
 
@@ -456,8 +452,8 @@ a command line flag (`-datatype-schema-file`) but its default location is:
 In the interactive mode, the operator can use the `-schema` flag to create
 the schema and examine it.  For example, below is the command to create
 BigQuery table schemas for tables `foo1` and `bar1`.  In this example,
-`jostler` is told to look for `foo1`’s measurement data schema in the
-default location and for `bar1`’s in `/path/to/bar1.json`.
+`jostler` is told to look for `foo1`'s measurement data schema in the
+default location and for `bar1`'s in `/path/to/bar1.json`.
 
 ```
     $ ./jostler -schema -datatype foo1 -datatype bar1 \
@@ -475,7 +471,7 @@ As mentioned earlier, the purpose of version `v1` is to support breaking
 changes to autoloading implementation (i.e., conventions agreed on between
 `jostler` and the loader agent in the pipeline).
 
-## 7.7. Index bundles
+### 7.6. Index bundles
 
 For every JSONL bundle that `jostler` uploads to GCS, it will also upload
 an index file also in JSONL format that contains the list of filenames
@@ -489,7 +485,7 @@ pipeline is concerned, `index1` is just another datatype.
 
 Index bundles will have the same name as the bundle they describe.
 
-## 7.8. Default paths and object names
+### 7.7. Default paths and object names
 
 In summary, by default:
 
@@ -497,17 +493,14 @@ In summary, by default:
     ```
     /var/spool/<experiment>/<datatype>/<yyyy>/<mm>/<dd>
     ```
-
 2. Datatype schema files will be read from the local filesystem at:
     ```
     /var/spool/datatypes/<datatype>.json
     ```
-
 3. Table schema files will be uploaded to GCS as:
     ```
     autoload/v1/tables/<experiment>/<datatype>.table.json
     ```
-
 4. JSONL files will be uploaded to GCS as:
     ```
     autoload/v1/<experiment>/<datatype>/date=<yyyy>-<mm>-<dd>/<timestamp>-<datatype>-<node-name>-<experiment>.jsonl.gz
@@ -521,16 +514,16 @@ their schema and JSONL files will be uploaded to GCS as:
     autoload/v1/<experiment>/index1/date=<yyyy>-<mm>-<dd>/<timestamp>-<datatype>-<node-name>-<experiment>.jsonl.gz
 ```
 
-## 7.9. GCS authentication
+### 7.8. GCS authentication
 
 To be written by.
 
-## 7.10. `jostler` configuration
+### 7.9. `jostler` configuration
 
 **GCS configuration**
 
 * bucket name: for example` pusher-mlab-{sandbox,staging,oti}`
-* home “folder”: object name starts with this string (e.g., `autoload/v1)`
+* home folder: object name starts with this string (e.g., `autoload/v1)`
 * M-Lab node name:` `parsed and used in object names (examples in 
 
 **Bundle configuration**
@@ -550,7 +543,7 @@ To be written by.
 * schema: run in the interactive mode and create schema files
 * verbose: enable verbose mode for more logging
 
-## 7.11. `jostler` architecture
+### 7.10. `jostler` architecture
 
 `jostler` architecture will consist of two major packages.  One package,
 called `watchdir`, will watch a directory where new format JSON files
@@ -570,11 +563,11 @@ no need to deduplicate data.  Due to asynchronous pod reboots and GCS
 failures, the feasibility of this guarantee is currently unclear but
 every effort will be made to obviate the need for data deduplication.
 
-## 7.12. Concurrency and shared data
+### 7.11. Concurrency and shared data
 
 To be written.
 
-## 7.13. Missed data files
+### 7.12. Missed data files
 
 For all _planned_ reboots, upload agents on M-Lab nodes will have a
 duration to flush out their active data and wrap up gracefully so that
@@ -584,15 +577,22 @@ no files are missed.  For `pusher`, the duration is specified with the
 
 However, because pods can have _unplanned_ restarts at any
 time, it is possible for `jostler` (or any other agent) to
-miss the “Writable file was closed” (`IN_CLOSE_WRITE`) or
-“File was moved to” (`IN_MOVED_FROM`) `inotify` events.
+miss the Writable file was closed (`IN_CLOSE_WRITE`) or
+File was moved to (`IN_MOVED_FROM`) `inotify` events.
 Also if too many events occur at once, the `inotify` event
 queue can overflow and lose some events (see [Limitations and
 caveats](https://man7.org/linux/man-pages/man7/inotify.7.html)).
 Additionally, if upload to GCS fails, the individual new format files
 that were in the bundle will not be deleted.
 
-When a file’s last modification time is more than a configurable duration (e.g., 2 hours), `jostler` assumes it either missed the file’s `IN_CLOSE_WRITE` or `IN_MOVED_FROM` event or uploading to GCS wasn’t successful.  In cases like this, `jostler` considers the file eligible for upload.  This also means that files that are open but are not modified for more than the configurable duration will be uploaded _prematurely_.  This is why it is required that “new measurements should not keep a file open without writing to it for more than a few minutes”.
+When a file's last modification time is more than a configurable
+duration (e.g., 2 hours), `jostler` assumes it either missed the file's
+`IN_CLOSE_WRITE` or `IN_MOVED_FROM` event or uploading to GCS wasn't
+successful.  In cases like this, `jostler` considers the file eligible
+for upload.  This also means that files that are open but are not modified
+for more than the configurable duration will be uploaded _prematurely_.
+This is why it is required that new measurements should not keep a file
+open without writing to it for more than a few minutes.
 
 ## Related Material
 
@@ -606,11 +606,11 @@ When a file’s last modification time is more than a configurable duration (e.g
 * [Pusher Design Document](https://github.com/m-lab/pusher/blob/main/DESIGN.md)
 * [Quotas and limits | BigQuery | Google Cloud](https://cloud.google.com/bigquery/quotas#load_jobs) 
 
-**APPENDIX**
+# APPENDIX
 
 ## Current measurement data filenames
 
-The existing M-Lab measurement services follow different naming conventions for storing data on the node’s local disk.  For example, NDT7 measurements store `ndt7` (download and upload), `annotation`, `hopannotation1`, `pcap`, `scamper1`, and `tcpinfo` datatypes in files named as shown below respectively:
+The existing M-Lab measurement services follow different naming conventions for storing data on the node's local disk.  For example, NDT7 measurements store `ndt7` (download and upload), `annotation`, `hopannotation1`, `pcap`, `scamper1`, and `tcpinfo` datatypes in files named as shown below respectively:
 
 
 ```
