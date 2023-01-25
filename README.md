@@ -54,7 +54,7 @@ container as follows:
 ```
 
 The reason new format pathnames must follow the above convention is
-that upload agents,  `[pusher](https://github.com/m-lab/pusher)` and
+that upload agents,  [`pusher`](https://github.com/m-lab/pusher) and
 `jostler`, use the same string of the pathname after `/var/spool`
 as a prefix for GCS object names.  For details, see [Uniform
 Names: Experiments by Any Other Name [Would Not Be As
