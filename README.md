@@ -129,37 +129,35 @@ abbreviated, and showing standard column names in boldface:
 
 ```
     {
-      "date": "2022/09/29",
-      "archiver": {
+      "**date**": "2022/09/29",
+      "**archiver**": {
         "Version": "jostler@0.1.7",
         "GitCommit": "3ac4528",
         "ArchiveURL": "gs://<bucket>/<prefix>/<bundlename>.jsonl.gz",
-        "Filename": "<yyyy>/<mm>/<dd>/<filename>.json"
+        "Filename": "<yyyy>/<mm>/<dd>/<filename1>.json"
       },
-      "raw": {
+      "**raw**": {
         "UUID": "1234",
         "MeasurementVersion": "0.1.2",
         "Field1": 42
       }
     }
     {
-      "date": "2022/09/29", "archiver": {...},
-      "raw": {
-        "UUID": "3456",
+      "**date**": "2022/09/29",
+      "**archiver**": {
+        "Version": "jostler@0.1.7",
+        "GitCommit": "3ac4528",
+        "ArchiveURL": "gs://<bucket>/<prefix>/<bundlename>.jsonl.gz",
+        "Filename": "<yyyy>/<mm>/<dd>/<filename2>.json"
+      },
+      "**raw**": {
+        "UUID": "1234",
         "MeasurementVersion": "0.1.2",
-        "Field2": 3.14
-      }
-    }
-    {
-      "date": "2022/09/29", "archiver": {...},
-      "raw": {
-        "UUID": "4567",
-        "MeasurementVersion": "0.1.2",
-        "Field1": 420,
+        "Field1": 420
         "Field2": 31.41
       }
     }
-
+    ...
 ```
 
 * <strong><code>date</code></strong> is the date component of the directory
@@ -289,16 +287,20 @@ their schema and JSONL files will be uploaded to GCS as:
 
 ### 2.7. `jostler` architecture
 
-`jostler` architecture will consist of two major packages.  One package,
-called `watchdir`, will watch a directory where new format JSON files
-are created.  The other package, called `bundlejson`, will bundle these
-files into compressed JSONL files and upload them to GCS.
+`jostler` architecture consists of a public `api` package that defines
+standard columns and `index1` datatype, and the following internal packages:
 
-`watchdir` will ignore files that do not have a `.json` suffix and
-`bundlejson` will ignore files that are not in proper JSON format.
-`jostler` is different from `pusher` by not
-indiscriminately including all files in the bundle regardless of
-their content.  This behavior of `jostler` will provide [better
+* `internal/gcs`: handles downloading and uploading files to Google Cloud Storage (GCS).
+* `internal/jsonlbundle`:  implements logic to process a single JSONL bundle.
+* `internal/schema implements logic to handle datatype and table schemas.
+* `internal/testhelper`: implements logic to help in unit and integration (e2e) testing.
+* `internal/uploadbundle`: implements logic to bundle multiple local JSON files into JSONL bundles and upload to Google Cloud Storage (GCS)
+* `internal/watchdir`: watches a directory and sends notifications to its client when it notices a new file.
+
+Files that do not have a .json suffix or are not in proper JSON format
+will be ignored.  As mentioned earlier, jostler is different from pusher
+by not indiscriminately including all files in the bundle regardless
+of their content.  This behavior of `jostler` will provide [better
 security](https://github.com/m-lab/pusher/blob/main/DESIGN.md#7-security-considerations).
 
 It is highly desirable that `jostler` guarantees it will not upload the
