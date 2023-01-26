@@ -108,6 +108,7 @@ func (jb *JSONLBundle) AddFile(fullPath, version, gitCommit string) error {
 		return err
 	}
 	stdCols := api.StandardColumnsV0{
+		Date: jb.DateSubdir,
 		Archiver: api.ArchiverV0{
 			Version:    version,
 			GitCommit:  gitCommit,

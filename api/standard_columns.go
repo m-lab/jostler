@@ -8,6 +8,7 @@ package api
 // type should be declared as "any" but bigquery.InferSchema() does not
 // support "any" (or "interface{}").
 type StandardColumnsV0 struct {
+	Date     string     `bigquery:"date"`     // yyyy-mm-dd pathname component of measurement data
 	Archiver ArchiverV0 `bigquery:"archiver"` // archiver details
 	Raw      string     `bigquery:"raw"`      // measurement data (file contents) in JSON format
 }
