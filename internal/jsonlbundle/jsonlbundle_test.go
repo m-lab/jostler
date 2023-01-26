@@ -176,7 +176,6 @@ func newTestJb(timestamp time.Time) *JSONLBundle {
 }
 
 func newJb(bucket, gcsDataDir, gcsIndexDir, gcsBaseID, datatype, dateSubdir string, timestamp time.Time) *JSONLBundle {
-	objName := fmt.Sprintf("%s-%s", timestamp.Format("20060102T150405.000000Z"), gcsBaseID)
 	return &JSONLBundle{
 		Lines:      []string{},
 		BadFiles:   []string{},
@@ -184,10 +183,10 @@ func newJb(bucket, gcsDataDir, gcsIndexDir, gcsBaseID, datatype, dateSubdir stri
 		Timestamp:  timestamp.Format("2006/01/02T150405.000000Z"),
 		Datatype:   datatype,
 		DateSubdir: dateSubdir,
-		BundleDir:  fmt.Sprintf("%s/date=%s", gcsDataDir, timestamp.Format("2006-01-02")), // e.g., ndt/pcap/date=2022-09-14
-		BundleName: objName + ".jsonl",
-		IndexDir:   fmt.Sprintf("%s/date=%s", gcsIndexDir, timestamp.Format("2006-01-02")), // e.g., ndt/index1/date=2022-09-14
-		IndexName:  objName + ".index",
+		BundleDir:  fmt.Sprintf("%s/date=%s", gcsDataDir, timestamp.Format("2006-01-02")),
+		BundleName: fmt.Sprintf("%s-%s-data.jsonl", timestamp.Format("20060102T150405.000000Z"), gcsBaseID),
+		IndexDir:   fmt.Sprintf("%s/date=%s", gcsIndexDir, timestamp.Format("2006-01-02")),
+		IndexName:  fmt.Sprintf("%s-%s-index1.jsonl", timestamp.Format("20060102T150405.000000Z"), gcsBaseID),
 		Size:       0,
 		bucket:     bucket,
 	}

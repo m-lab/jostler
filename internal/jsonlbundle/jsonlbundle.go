@@ -51,9 +51,16 @@ func Verbose(v func(string, ...interface{})) {
 }
 
 // New returns a new instance of JSONLBundle.
+//
+// GCS object names of data bundles and index bundles follow the
+// following formats:
+//
+//	autoload/v1/<experiment>/<datatype>/date=<yyyy>-<mm>-<dd>/<timestamp>-<datatype>-<node>-<experiment>-data.jsonl
+//	|--------GCSConfig.DataDir--------|                                   |------GCSConfig.BaseID------|
+//	autoload/v1/<experiment>/index1/date=<yyyy>-<mm>-<dd>/<timestamp>-<datatype>-<node>-<experiment>-index1.jsonl
+//	|------GCSConfig.IndexDir-----|                                   |------GCSConfig.BaseID------|
 func New(bucket, gcsDataDir, gcsIndexDir, gcsBaseID, datatype, dateSubdir string) *JSONLBundle {
 	nowUTC := time.Now().UTC()
-	objName := fmt.Sprintf("%s-%s", nowUTC.Format("20060102T150405.000000Z"), gcsBaseID)
 	return &JSONLBundle{
 		Lines:      []string{},
 		BadFiles:   []string{},
@@ -61,10 +68,10 @@ func New(bucket, gcsDataDir, gcsIndexDir, gcsBaseID, datatype, dateSubdir string
 		Timestamp:  nowUTC.Format("2006/01/02T150405.000000Z"),
 		Datatype:   datatype,
 		DateSubdir: dateSubdir,
-		BundleDir:  fmt.Sprintf("%s/date=%s", gcsDataDir, nowUTC.Format("2006-01-02")), // e.g., ndt/pcap/date=2022-09-14
-		BundleName: objName + ".jsonl",
-		IndexDir:   fmt.Sprintf("%s/date=%s", gcsIndexDir, nowUTC.Format("2006-01-02")), // e.g., ndt/index1/date=2022-09-14
-		IndexName:  objName + ".index",
+		BundleDir:  fmt.Sprintf("%s/date=%s", gcsDataDir, nowUTC.Format("2006-01-02")),
+		BundleName: fmt.Sprintf("%s-%s-data.jsonl", nowUTC.Format("20060102T150405.000000Z"), gcsBaseID),
+		IndexDir:   fmt.Sprintf("%s/date=%s", gcsIndexDir, nowUTC.Format("2006-01-02")),
+		IndexName:  fmt.Sprintf("%s-%s-index1.jsonl", nowUTC.Format("20060102T150405.000000Z"), gcsBaseID),
 		Size:       0,
 		bucket:     bucket,
 	}
@@ -111,7 +118,6 @@ func (jb *JSONLBundle) AddFile(fullPath, version, gitCommit string) error {
 	}
 	stdColsBytes, err := json.Marshal(stdCols)
 	if err != nil {
-		// log.Panicf("failed to marshal standard columns: %v", err) XXX Should we panic?
 		return fmt.Errorf("%v: %w", ErrMarshalStdCols, err)
 	}
 	// Replace the placeholder Raw with the actual measurement data.
@@ -146,7 +152,6 @@ func (jb *JSONLBundle) MarshalIndex() ([]byte, error) {
 	for i, index := range jb.Index {
 		indexBytes, err := json.Marshal(index)
 		if err != nil {
-			// log.Panicf("failed to marshal index: %v", err) XXX Should we panic?
 			return nil, fmt.Errorf("%v: %w", ErrMarshalIndex, err)
 		}
 		marshaledIndex[i] = string(indexBytes)
