@@ -218,13 +218,14 @@ func startUploader(mainCtx context.Context, mainCancel context.CancelFunc, statu
 		GCSClient: stClient,
 		Bucket:    bucket,
 		DataDir:   filepath.Join(gcsDataDir, experiment, datatype),
+		IndexDir:  filepath.Join(gcsDataDir, experiment, "index1"),
 		BaseID:    fmt.Sprintf("%s-%s-%s-%s", datatype, nameParts.Machine, nameParts.Site, experiment),
 	}
 	bundleConf := uploadbundle.BundleConfig{
 		Version:   version,
 		GitCommit: gitCommit,
 		Datatype:  datatype,
-		DataDir:   filepath.Join(localDataDir, experiment, datatype),
+		SpoolDir:  filepath.Join(localDataDir, experiment, datatype),
 		SizeMax:   bundleSizeMax,
 		AgeMax:    bundleAgeMax,
 	}

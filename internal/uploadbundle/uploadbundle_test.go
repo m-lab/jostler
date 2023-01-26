@@ -26,7 +26,7 @@ func TestNew(t *testing.T) { //nolint:paralleltest
 		wdClient      *testhelper.WatchDir
 		gcsBucket     string
 		gcsDataDir    string
-		gcsBaseID     string
+		gcsDataBaseID string
 		bundleDataDir string
 		wantErr       error
 	}{
@@ -35,7 +35,7 @@ func TestNew(t *testing.T) { //nolint:paralleltest
 			wdClient:      nil,
 			gcsBucket:     "some-bucket",
 			gcsDataDir:    "some/path/in/gcs",
-			gcsBaseID:     "some-string",
+			gcsDataBaseID: "some-string",
 			bundleDataDir: "/some/path",
 			wantErr:       ErrConfig,
 		},
@@ -44,7 +44,7 @@ func TestNew(t *testing.T) { //nolint:paralleltest
 			wdClient:      wdClient,
 			gcsBucket:     "",
 			gcsDataDir:    "some/path/in/gcs",
-			gcsBaseID:     "some-string",
+			gcsDataBaseID: "some-string",
 			bundleDataDir: "/some/path",
 			wantErr:       ErrConfig,
 		},
@@ -53,16 +53,16 @@ func TestNew(t *testing.T) { //nolint:paralleltest
 			wdClient:      wdClient,
 			gcsBucket:     "some-bucket",
 			gcsDataDir:    "",
-			gcsBaseID:     "some-string",
+			gcsDataBaseID: "some-string",
 			bundleDataDir: "/some/path",
 			wantErr:       ErrConfig,
 		},
 		{
-			name:          "empty string gcsBaseID",
+			name:          "empty string gcsDataBaseID",
 			wdClient:      wdClient,
 			gcsBucket:     "some-bucket",
 			gcsDataDir:    "some/path/in/gcs",
-			gcsBaseID:     "",
+			gcsDataBaseID: "",
 			bundleDataDir: "/some/path",
 			wantErr:       ErrConfig,
 		},
@@ -71,7 +71,7 @@ func TestNew(t *testing.T) { //nolint:paralleltest
 			wdClient:      wdClient,
 			gcsBucket:     "some-bucket",
 			gcsDataDir:    "some/path/in/gcs",
-			gcsBaseID:     "some-string",
+			gcsDataBaseID: "some-string",
 			bundleDataDir: "",
 			wantErr:       ErrConfig,
 		},
@@ -80,7 +80,7 @@ func TestNew(t *testing.T) { //nolint:paralleltest
 			wdClient:      wdClient,
 			gcsBucket:     "newclient",
 			gcsDataDir:    "some/path/in/gcs",
-			gcsBaseID:     "some-string",
+			gcsDataBaseID: "some-string",
 			bundleDataDir: "/some/path",
 			wantErr:       nil,
 		},
@@ -94,11 +94,11 @@ func TestNew(t *testing.T) { //nolint:paralleltest
 			GCSClient: stClient,
 			Bucket:    test.gcsBucket,
 			DataDir:   test.gcsDataDir,
-			BaseID:    test.gcsBaseID,
+			BaseID:    test.gcsDataBaseID,
 		}
 		bundleConf := BundleConfig{
 			Datatype: "foo1",
-			DataDir:  test.bundleDataDir,
+			SpoolDir: test.bundleDataDir,
 			SizeMax:  20 * 1024 * 1024,
 			AgeMax:   1 * time.Hour,
 		}
@@ -217,12 +217,13 @@ func setupClients(t *testing.T, sizeMax uint, ageMax time.Duration) (*testhelper
 	gcsConf := GCSConfig{
 		GCSClient: stClient,
 		Bucket:    "newclient,upload",
-		DataDir:   "testdata/autoload/v1",
+		DataDir:   "testdata/autoload/v1/experiment/datatype",
+		IndexDir:  "testdata/autoload/v1/experiment/index1",
 		BaseID:    "some-string",
 	}
 	bundleConf := BundleConfig{
 		Datatype: "foo1",
-		DataDir:  "testdata/spool/jostler/foo1",
+		SpoolDir: "testdata/spool/jostler/foo1",
 		SizeMax:  sizeMax,
 		AgeMax:   ageMax,
 	}
