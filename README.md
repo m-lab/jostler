@@ -88,11 +88,11 @@ GCS object names have the `autoload/<version>` prefix before
 The purpose of `autoload/<version>` in the prefix of the object name
 is to support breaking changes to autoloading implementation.
 
-Each bundle will have the following naming convention:
+Each data bundle will have the following naming convention:
 
 ```
     prefix=autoload/<version>/<experiment>/<datatype>/<yyyy>/<mm>/<dd>
-    <prefix>/<timestamp>-<datatype>-<node-name>-<experiment>.jsonl.gz
+    <prefix>/<timestamp>-<datatype>-<node>-<experiment>-data.jsonl.gz
 ```
 
 ### 2.2. Bundle contents
@@ -247,18 +247,14 @@ In summary, by default:
     ```
     autoload/v1/tables/<experiment>/<datatype>.table.json
     ```
-4. JSONL files will be uploaded to GCS as:
+4. JSONL data bundles will be uploaded to GCS as:
     ```
-    autoload/v1/<experiment>/<datatype>/date=<yyyy>-<mm>-<dd>/<timestamp>-<datatype>-<node-name>-<experiment>.jsonl.gz
-
+    autoload/v1/<experiment>/<datatype>/date=<yyyy>-<mm>-<dd>/<timestamp>-<datatype>-<node>-<experiment>-data.jsonl.gz
     ```
-It should be clear that, since index files have a datatype of `index1`,
-their schema and JSONL files will be uploaded to GCS as:
-
-```
-    autoload/v1/tables/<experiment>/index1.table.json
-    autoload/v1/<experiment>/index1/date=<yyyy>-<mm>-<dd>/<timestamp>-<datatype>-<node-name>-<experiment>.jsonl.gz
-```
+5. JSONL index bundles will be uploaded to GCS as:
+    ```
+    autoload/v1/<experiment>/<datatype>/date=<yyyy>-<mm>-<dd>/<timestamp>-<datatype>-<node>-<experiment>-index1.jsonl.gz
+    ```
 
 ### 2.6. `jostler` configuration
 

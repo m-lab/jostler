@@ -11,6 +11,14 @@ and e2e testing.
 3. e2e.sh is a bash script to invoke jostler with the right parameters
    for e2e testing.
 
+4. check_bundles.go is a Go program that validates data and index bundles
+   after e2e tests as follows:
+   - For every index bundle there is a data bundle and vice versa.
+   - Every file specified in the index bundle exists in the data
+     bundle and vice versa.
+   - The order in which files appear in the index and data bundles
+     are the same.
+
 The easiest way to do e2e testing is to run jostler in one terminal and
 run data.go in another terminal as shown below:
 
@@ -18,6 +26,7 @@ run data.go in another terminal as shown below:
 [Term A]
 $ cd /path/to/your/jostler/directory
 $ EXPERIMENT=experiment DATATYPE=datatype1 ./test/e2e.sh
+# wait until data.go (in Term B) has been killed and then kill jostler (^C)
 
 Because e2e.sh invokes jostler with the -gcs-local-disk flag, jostler will
 use testhelper's local disk storage implementation which mimics downloads
@@ -28,6 +37,7 @@ a lot easier.
 [Term B]
 $ cd /path/to/your/jostler/directory/test
 $ EXPERIMENT=experiment DATATYPE=datatype1 go run data.go -sleep 1s -verbose
+# wait a minute or so and then kill the command (^C)
 
 
 [Term C]
@@ -39,7 +49,13 @@ subdirectories of:
 
 	e2e/local/var/spool/$EXPERIMENT/$DATATYPE/<yyyy>/<mm>/<dd>
 
-and are deleted by jostler after bundles and their indices are "uploaded" to the
+and are deleted by jostler after data and index bundles are "uploaded" to the
 following directory:
 
 	e2e/gcs/autoload/v1/$EXPERIMENT/$DATAYPE/date=<yyyy>-<mm>-<dd>
+
+If you'd like, you can run check_bundles to verify the correctness of
+data and index bundles as follows:
+
+$ cd test
+$ go run check_bundles.go -verbose  ../e2e/gcs/autoload/v1/experiment
