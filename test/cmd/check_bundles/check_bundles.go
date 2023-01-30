@@ -23,7 +23,7 @@ import (
 	"github.com/m-lab/jostler/api"
 )
 
-var verbose = flag.Bool("v", false, "enable verbose mode")
+var verbose = flag.Bool("verbose", false, "enable verbose mode")
 
 type StandardColumnsV0 struct {
 	Archiver api.ArchiverV0 `bigquery:"archiver"` // archiver details
