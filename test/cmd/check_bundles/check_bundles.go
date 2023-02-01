@@ -1,10 +1,10 @@
-// This tool is a part of e2e helper programs and verfies that:
+// This tool is a part of e2e helper programs and verifies that:
 //
 //  1. For every index bundle there is a data bundle and vice versa.
 //  2. Every file specified in the index bundle exists in the data
 //     bundle and vice versa.
 //  3. The order in which files appear in the index and data bundles
-//     are the same.
+//     is the same.
 package main
 
 import (
