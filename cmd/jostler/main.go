@@ -1,43 +1,5 @@
-// Package main implements jostler.
-//
-// jostler supports two modes of operation:
-//
-//   - A short-lived interactive "local" mode meant to run on a user's
-//     workstation to create table schema files in JSON format and
-//     save them in the current directory so the user can easily examine
-//     them (mostly for troubleshooting purposes).
-//   - A long-lived non-interactive "daemon" mode meant to run on M-Lab
-//     nodes to bundle and upload measurement data to GCS.
-//
-// When running in the non-interactive mode, jostler checks if the current
-// table schema for each datatype ("new") is backward compatible with the
-// datatypes's previous table schema ("old").  There are four possible
-// scenarios with respect to old and new:
-//
-//  1. Old doesn't exists (i.e, this is the first time jostler is
-//     invoked for the given datatype).
-//  2. Old exists and matches new.
-//  3. Old exists and doesn't match new, but new is backward compatible
-//     with old.
-//  4. Old exists and doesn't match new, and new isn't backward
-//     compatible with old.
-//
-// Below is how jostler behaves under each of the above scenarios:
-//
-//  1. Uploads new to GCS.
-//  2. Doesn't upload.
-//  3. Uploads new to GCS.
-//  4. Fails to run.
-//
-// In summary, by default:
-//  1. Measurement data files will be read from the local filesystem at:
-//     /var/spool/<experiment>/<datatype>/<yyyy>/<mm>/<dd>
-//  2. Datatype schema files will be read from the local filesystem at:
-//     /var/spool/datatypes/<datatype>.json
-//  3. Table schema files will be uploaded to GCS as:
-//     autoload/v1/tables/<experiment>/<datatype>.table.json
-//  4. JSONL files will be uploaded to GCS as:
-//     autoload/v1/<experiment>/<datatype>/date=<yyyy>-<mm>-<dd>/<timestamp>-<datatype>-<node-name>-<experiment>.jsonl.gz
+// Package main implements jostler.  See README.md for a detailed
+// description of how jostler works.
 package main
 
 import (

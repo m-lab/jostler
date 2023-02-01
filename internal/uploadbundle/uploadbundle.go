@@ -14,13 +14,15 @@
 // GCS object names of JSONL bundles and their corresponding indices
 // have the following format:
 //
-//	autoload/v1/<experiment>/<datatype>/date=<yyyy>-<mm>-<dd>/<timestamp>-<datatype>-<node-name>-<experiment>.jsonl.gz
-//	|--------GCSConfig.DataDir--------|                                   |---------GCSConfig.BaseID--------|
-//	autoload/v1/<experiment>/index1/date=<yyyy>-<mm>-<dd>/<timestamp>-<datatype>-<node-name>-<experiment>.index.gz
-//	|------GCSConfig.IndexDir-----|                                   |---------GCSConfig.BaseID--------|
+//	autoload/v1/<experiment>/<datatype>/date=<yyyy>-<mm>-<dd>/<timestamp>-<datatype>-<node>-<experiment>.jsonl.gz
+//	|--------GCSConfig.DataDir--------|                                   |-------GCSConfig.BaseID-----|
+//	autoload/v1/<experiment>/index1/date=<yyyy>-<mm>-<dd>/<timestamp>-<datatype>-<node>-<experiment>.index.gz
+//	|------GCSConfig.IndexDir-----|                                   |-------GCSConfig.BaseID-----|
 package uploadbundle
 
 import (
+	"bytes"
+	"compress/gzip"
 	"context"
 	"errors"
 	"fmt"
@@ -304,34 +306,53 @@ func (ub *UploadBundle) uploadBundle(ctx context.Context, jb *jsonlbundle.JSONLB
 // measurement data (JSONL bundle) and its associated index in the
 // background.
 func (ub *UploadBundle) uploadInBackground(ctx context.Context, jb *jsonlbundle.JSONLBundle, ack bool) {
-	gcsClient := ub.gcsConf.GCSClient
 	go func(jb *jsonlbundle.JSONLBundle) {
 		var err error
-		// Upload the measurement data.
+		// Upload data bundle.
 		objPath := filepath.Join(jb.BundleDir, jb.BundleName)
 		contents := []byte(strings.Join(jb.Lines, "\n"))
-		verbose("uploading measurement data %v", objPath)
-		if err = gcsClient.Upload(ctx, objPath, contents); err != nil {
-			log.Printf("ERROR: failed to upload bundle %v: %v\n", jb.Description(), err)
+		if err = gzipAndUpload(ctx, ub.gcsConf.GCSClient, objPath, contents); err != nil {
+			log.Printf("ERROR: data bundle %v: %v\n", jb.Description(), err)
 			return
 		}
-		// Upload the index.
+
+		// Upload index bundle.
 		objPath = filepath.Join(jb.IndexDir, jb.IndexName)
 		contents, err = jb.MarshalIndex()
 		if err != nil {
 			log.Printf("ERROR: failed to marshal index for bundle %v: %v\n", jb.Description(), err)
 			return
 		}
-		verbose("uploading index %v", objPath)
-		if err = gcsClient.Upload(ctx, objPath, contents); err != nil {
-			log.Printf("ERROR: failed to upload index for bundle %v: %v\n", jb.Description(), err)
+		if err = gzipAndUpload(ctx, ub.gcsConf.GCSClient, objPath, contents); err != nil {
+			log.Printf("ERROR: index bundle %v: %v\n", jb.Description(), err)
 			return
 		}
+
 		// Remove uploaded files from the local filesystem.
 		jb.RemoveLocalFiles()
+
 		// Tell directory watcher we're done with these files.
 		if ack {
 			ub.wdClient.WatchAckChan() <- append(jb.IndexFilenames(), jb.BadFiles...)
 		}
 	}(jb)
+}
+
+// gzipAndUpload compresses the specified contents and uploads it via
+// the specified upload client.
+func gzipAndUpload(ctx context.Context, gcsClient Uploader, objPath string, contents []byte) error {
+	var gzContents bytes.Buffer
+	gzipWriter := gzip.NewWriter(&gzContents)
+	if _, err := gzipWriter.Write(contents); err != nil {
+		return fmt.Errorf("failed to gzip: %w", err)
+	}
+	if err := gzipWriter.Close(); err != nil {
+		return fmt.Errorf("failed to close gzip writer: %w", err)
+	}
+
+	verbose("uploading %v", objPath)
+	if err := gcsClient.Upload(ctx, objPath, gzContents.Bytes()); err != nil {
+		return fmt.Errorf("failed to upload: %w", err)
+	}
+	return nil
 }

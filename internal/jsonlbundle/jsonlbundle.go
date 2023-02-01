@@ -68,10 +68,10 @@ func New(bucket, gcsDataDir, gcsIndexDir, gcsBaseID, datatype, dateSubdir string
 		Timestamp:  nowUTC.Format("2006/01/02T150405.000000Z"),
 		Datatype:   datatype,
 		DateSubdir: dateSubdir,
-		BundleDir:  fmt.Sprintf("%s/date=%s", gcsDataDir, nowUTC.Format("2006-01-02")),
-		BundleName: fmt.Sprintf("%s-%s-data.jsonl", nowUTC.Format("20060102T150405.000000Z"), gcsBaseID),
-		IndexDir:   fmt.Sprintf("%s/date=%s", gcsIndexDir, nowUTC.Format("2006-01-02")),
-		IndexName:  fmt.Sprintf("%s-%s-index1.jsonl", nowUTC.Format("20060102T150405.000000Z"), gcsBaseID),
+		BundleDir:  dirName(gcsDataDir, nowUTC),
+		BundleName: objectName(nowUTC, gcsBaseID, "data"),
+		IndexDir:   dirName(gcsIndexDir, nowUTC),
+		IndexName:  objectName(nowUTC, gcsBaseID, "index1"),
 		Size:       0,
 		bucket:     bucket,
 	}
@@ -196,4 +196,12 @@ func readJSONFile(fullPath string) (string, error) {
 		return "", fmt.Errorf("%v: %w", fullPath, ErrNotOneLine)
 	}
 	return contents, nil
+}
+
+func objectName(t time.Time, gcsBaseID, bundleType string) string {
+	return fmt.Sprintf("%s-%s-%s.jsonl.gz", t.Format("20060102T150405.000000Z"), gcsBaseID, bundleType)
+}
+
+func dirName(gcsDir string, t time.Time) string {
+	return fmt.Sprintf("%s/date=%s", gcsDir, t.Format("2006-01-02"))
 }
