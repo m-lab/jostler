@@ -25,8 +25,9 @@ run gen_data.go in another terminal as shown below:
 
 
 [Term A]
+
 $ cd /path/to/your/jostler/directory
-$ EXPERIMENT=experiment DATATYPE=datatype1 ./test/e2e.sh
+$ EXPERIMENT=experiment DATATYPE=datatype1 ./test/e2e.sh  # add -c to run in a container
 # wait until gen_data.go (in Term B) has been killed and then kill jostler (^C)
 
 Because e2e.sh invokes jostler with the -gcs-local-disk flag, jostler will
