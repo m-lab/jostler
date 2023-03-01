@@ -20,10 +20,14 @@ import (
 )
 
 const (
-	ANSIGreen  = "\033[00;32m"
-	ANSIBlue   = "\033[00;34m"
+	// ANSIGreen is the ANSI code for green.
+	ANSIGreen = "\033[00;32m"
+	// ANSIBlue is the ANSI code for blue.
+	ANSIBlue = "\033[00;34m"
+	// ANSIPurple is the ANSI code for purple.
 	ANSIPurple = "\033[00;35m"
-	ANSIEnd    = "\033[0m"
+	// ANSIEnd is the ANSI code to end an ANSI string.
+	ANSIEnd = "\033[0m"
 )
 
 // VLogf logs messages in verbose mode (mostly for debugging).  Messages

@@ -92,7 +92,7 @@ func TestCLI(t *testing.T) { //nolint:funlen,paralleltest
 			[]string{"-gcs-bucket", testBucket, "-mlab-node-name", testNode, "-experiment", testExperiment},
 		},
 		{
-			"daemon: invalid hostname", false, "Invalid hostname",
+			"daemon: invalid hostname", false, "invalid hostname",
 			[]string{"-gcs-bucket", testBucket, "-mlab-node-name", "hostname", "-experiment", testExperiment, "-datatype", testDatatype},
 		},
 		{
@@ -223,7 +223,9 @@ func callMain(t *testing.T, osArgs []string, wantErrStr string) {
 		} else {
 			if wantErrStr == "" {
 				t.Fatalf("main() = %v, wanted \"\"", gotErr)
-			} else if !strings.Contains(gotErr.Error(), wantErrStr) {
+			}
+			gotErrStr := strings.ToLower(gotErr.Error())
+			if !strings.Contains(gotErrStr, strings.ToLower(wantErrStr)) {
 				t.Fatalf("main() = %v, wanted %v", gotErr, wantErrStr)
 			}
 		}

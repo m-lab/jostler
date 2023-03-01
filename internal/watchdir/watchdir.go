@@ -65,12 +65,21 @@ var (
 	errNotifyWatch       = errors.New("failed to start notify.Watch")
 
 	// Testing and debugging support.
-	verbose = func(fmt string, args ...interface{}) {}
+	vFunc     = func(fmt string, args ...interface{}) {}
+	vFuncLock sync.Mutex
 )
 
 // Verbose prints verbose messages if initialized by the caller.
 func Verbose(v func(string, ...interface{})) {
-	verbose = v
+	vFuncLock.Lock()
+	vFunc = v
+	vFuncLock.Unlock()
+}
+
+func verbose(fmt string, args ...interface{}) {
+	vFuncLock.Lock()
+	vFunc(fmt, args...)
+	vFuncLock.Unlock()
 }
 
 // New returns a new instance of WatchDir.

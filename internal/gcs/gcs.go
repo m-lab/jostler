@@ -16,6 +16,8 @@ import (
 	"github.com/googleapis/google-cloud-go-testing/storage/stiface"
 )
 
+// StorageClient contains information needed to download from or
+// upload to Google Cloud Storage (GCS).
 type StorageClient struct {
 	bucket       string
 	client       stiface.Client

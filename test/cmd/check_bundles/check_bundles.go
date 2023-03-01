@@ -25,6 +25,11 @@ import (
 
 var verbose = flag.Bool("verbose", false, "enable verbose mode")
 
+// StandardColumnsV0 defines version 0 of the standard columns included
+// in every line (row) along with the raw data from the measurement service.
+//
+// We have to define it because Raw has to be defined as string in
+// api.StandardColumnsV0 and as any here.
 type StandardColumnsV0 struct {
 	Archiver api.ArchiverV0 `bigquery:"archiver"` // archiver details
 	Raw      any            `bigquery:"raw"`      // measurement data (file contents) in JSON format
@@ -48,7 +53,7 @@ func walkDir(dir string) {
 		}
 		bundleType := ""
 		if strings.HasSuffix(path, "-data.jsonl.gz") {
-			bundleType = "data"
+			bundleType = "data" //nolint:goconst
 		} else if strings.HasSuffix(path, "-index1.jsonl.gz") {
 			bundleType = "index"
 		}
@@ -62,9 +67,9 @@ func walkDir(dir string) {
 	}
 }
 
-func checkBundle(thisBundle, bundleType string) {
+func checkBundle(thisBundle, bundleType string) { //nolint:funlen,cyclop
 	if *verbose {
-		fmt.Printf("\nchecking %v bundle %v\n", bundleType, thisBundle)
+		fmt.Printf("\nchecking %v bundle %v\n", bundleType, thisBundle) //nolint:forbidigo
 	}
 	// 1. Verify we can open the bundle.
 	thisFi, err := os.Open(thisBundle)
@@ -130,7 +135,7 @@ func checkBundle(thisBundle, bundleType string) {
 
 func fileInBundle(bundleFi *os.File, bundleType, filename string, order int) bool {
 	if *verbose {
-		fmt.Printf("%s at %d ", filename, order)
+		fmt.Printf("%s at %d ", filename, order) //nolint:forbidigo
 	}
 	r, err := gzip.NewReader(bundleFi)
 	if err != nil {
@@ -158,7 +163,7 @@ func fileInBundle(bundleFi *os.File, bundleType, filename string, order int) boo
 		}
 		if f == filename {
 			if *verbose {
-				fmt.Printf("FOUND at %d\n", i)
+				fmt.Printf("FOUND at %d\n", i) //nolint:forbidigo
 			}
 			if i != order {
 				log.Panicf("mismatch in order (%d != %d)", i, order)
@@ -166,6 +171,6 @@ func fileInBundle(bundleFi *os.File, bundleType, filename string, order int) boo
 			return true
 		}
 	}
-	fmt.Println("NOT FOUND")
+	fmt.Println("NOT FOUND") //nolint:forbidigo
 	return false
 }

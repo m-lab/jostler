@@ -1,3 +1,6 @@
+// Package main implements a simple tool that mimics a measurement
+// service by creating measurement data files for jostler to bundle
+// and upload.
 package main
 
 import (

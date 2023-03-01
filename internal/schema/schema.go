@@ -32,23 +32,37 @@ type (
 )
 
 var (
-	LocalDataDir          = "/var/spool"
+	// LocalDataDir is the root of the local directory.
+	LocalDataDir = "/var/spool"
+	// GCSDataDir is the left-most prefix ("root") of GCS objects.
 	GCSDataDir            = "autoload/v1"
 	dtSchemaPathTemplate  = "/datatypes/<datatype>.json"
 	tblSchemaPathTemplate = "/tables/<experiment>/<datatype>.table.json"
 
-	ErrStorageClient  = errors.New("failed to create storage client")
-	ErrReadSchema     = errors.New("failed to read schema file")
-	ErrEmptySchema    = errors.New("empty schema file")
+	// ErrStorageClient error.
+	ErrStorageClient = errors.New("failed to create storage client")
+	// ErrReadSchema error.
+	ErrReadSchema = errors.New("failed to read schema file")
+	// ErrEmptySchema error.
+	ErrEmptySchema = errors.New("empty schema file")
+	// ErrSchemaFromJSON error.
 	ErrSchemaFromJSON = errors.New("failed to create schema from JSON")
-	ErrMarshal        = errors.New("failed to marshal schema")
-	ErrUnmarshal      = errors.New("failed to unmarshal schema")
-	ErrCompare        = errors.New("failed to compare schema")
-	ErrOnlyInOld      = errors.New("field(s) only in old schema")
-	ErrTypeMismatch   = errors.New("difference(s) in schema field types")
-	ErrType           = errors.New("unexpected type")
-	ErrDownload       = errors.New("failed to download schema")
-	ErrUpload         = errors.New("failed to upload schema")
+	// ErrMarshal error.
+	ErrMarshal = errors.New("failed to marshal schema")
+	// ErrUnmarshal error.
+	ErrUnmarshal = errors.New("failed to unmarshal schema")
+	// ErrCompare error.
+	ErrCompare = errors.New("failed to compare schema")
+	// ErrOnlyInOld error.
+	ErrOnlyInOld = errors.New("field(s) only in old schema")
+	// ErrTypeMismatch error.
+	ErrTypeMismatch = errors.New("difference(s) in schema field types")
+	// ErrType error.
+	ErrType = errors.New("unexpected type")
+	// ErrDownload error.
+	ErrDownload = errors.New("failed to download schema")
+	// ErrUpload error.
+	ErrUpload = errors.New("failed to upload schema")
 
 	// Testing and debugging support.
 	verbosef = func(fmt string, args ...interface{}) {}
