@@ -1,6 +1,6 @@
 // Package watchdir watches a directory and sends notifications to its
 // client when it notices a new file.
-package watchdir //nolint:testpackage
+package watchdir
 
 import (
 	"context"
@@ -16,11 +16,11 @@ import (
 	"github.com/rjeczalik/notify"
 )
 
-func TestVerbose(t *testing.T) { //nolint:paralleltest
+func TestVerbose(t *testing.T) {
 	Verbose(func(fmt string, args ...interface{}) {})
 }
 
-func TestNew(t *testing.T) { //nolint:paralleltest
+func TestNew(t *testing.T) {
 	tests := []struct {
 		name            string
 		watchDir        string
@@ -67,7 +67,7 @@ func TestNew(t *testing.T) { //nolint:paralleltest
 	}
 }
 
-func TestWatchAndNotify(t *testing.T) { //nolint:paralleltest
+func TestWatchAndNotify(t *testing.T) {
 	defer func() {
 		os.RemoveAll("testdata/j.json")
 		os.RemoveAll("testdata/t.txt")

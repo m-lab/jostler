@@ -4,6 +4,7 @@ package main
 import (
 	"errors"
 	"flag"
+	"fmt"
 	"log"
 	"os"
 	"strings"
@@ -21,13 +22,14 @@ const (
 	testDatatype     = "foo1"
 )
 
+var (
+	errString  = errors.New("panic string")
+	errError   = errors.New("panic error")
+	errUnknown = errors.New("panic unknown")
+)
+
 // TestCLI tests non-interactive CLI invocations.
-//
-// The comment nolint:funlen,paralleltest tells golangci-lint
-// not to run funlen and paralleltest linters because it's OK
-// that the function length is more then 120 lines and also
-// because we should not run these tests in parallel.
-func TestCLI(t *testing.T) { //nolint:funlen,paralleltest
+func TestCLI(t *testing.T) {
 	tests := []struct {
 		name            string   // name of the test
 		rmTblSchemaFile bool     // if true, remove table schema file before running the test
@@ -247,11 +249,11 @@ func recoverError(r any) error {
 	var err error
 	switch x := r.(type) {
 	case string:
-		err = errors.New(x) //nolint
+		err = fmt.Errorf("%w: %v", errString, x)
 	case error:
-		err = x
+		err = fmt.Errorf("%w: %v", errError, x)
 	default:
-		err = errors.New("unknown panic") //nolint
+		err = fmt.Errorf("%w: %v", errUnknown, x)
 	}
 	return err
 }

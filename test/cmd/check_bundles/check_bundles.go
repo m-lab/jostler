@@ -23,7 +23,12 @@ import (
 	"github.com/m-lab/jostler/api"
 )
 
-var verbose = flag.Bool("verbose", false, "enable verbose mode")
+var (
+	typeData  = "data"
+	typeIndex = "index"
+
+	verbose = flag.Bool("verbose", false, "enable verbose mode")
+)
 
 // StandardColumnsV0 defines version 0 of the standard columns included
 // in every line (row) along with the raw data from the measurement service.
@@ -53,9 +58,9 @@ func walkDir(dir string) {
 		}
 		bundleType := ""
 		if strings.HasSuffix(path, "-data.jsonl.gz") {
-			bundleType = "data" //nolint:goconst
+			bundleType = typeData
 		} else if strings.HasSuffix(path, "-index1.jsonl.gz") {
-			bundleType = "index"
+			bundleType = typeIndex
 		}
 		if bundleType != "" {
 			checkBundle(path, bundleType)
@@ -67,9 +72,9 @@ func walkDir(dir string) {
 	}
 }
 
-func checkBundle(thisBundle, bundleType string) { //nolint:funlen,cyclop
+func checkBundle(thisBundle, bundleType string) {
 	if *verbose {
-		fmt.Printf("\nchecking %v bundle %v\n", bundleType, thisBundle) //nolint:forbidigo
+		fmt.Printf("\nchecking %v bundle %v\n", bundleType, thisBundle)
 	}
 	// 1. Verify we can open the bundle.
 	thisFi, err := os.Open(thisBundle)
@@ -81,10 +86,10 @@ func checkBundle(thisBundle, bundleType string) { //nolint:funlen,cyclop
 	// 2. Verify there is corresponding bundle for this bundle.
 	var otherBundle string
 	switch bundleType {
-	case "data":
+	case typeData:
 		otherBundle = strings.ReplaceAll(thisBundle, "/datatype1/", "/index1/")
 		otherBundle = strings.ReplaceAll(otherBundle, "-data.jsonl.gz", "-index1.jsonl.gz")
-	case "index":
+	case typeIndex:
 		otherBundle = strings.ReplaceAll(thisBundle, "/index1/", "/datatype1/")
 		otherBundle = strings.ReplaceAll(otherBundle, "-index1.jsonl.gz", "-data.jsonl.gz")
 	default:
@@ -108,7 +113,7 @@ func checkBundle(thisBundle, bundleType string) { //nolint:funlen,cyclop
 		t := s.Text()
 		var err error
 		var filename string
-		if bundleType == "data" {
+		if bundleType == typeData {
 			var stdCols StandardColumnsV0
 			err = json.Unmarshal([]byte(t), &stdCols)
 			filename = stdCols.Archiver.Filename
@@ -135,7 +140,7 @@ func checkBundle(thisBundle, bundleType string) { //nolint:funlen,cyclop
 
 func fileInBundle(bundleFi *os.File, bundleType, filename string, order int) bool {
 	if *verbose {
-		fmt.Printf("%s at %d ", filename, order) //nolint:forbidigo
+		fmt.Printf("%s at %d ", filename, order)
 	}
 	r, err := gzip.NewReader(bundleFi)
 	if err != nil {
@@ -149,7 +154,7 @@ func fileInBundle(bundleFi *os.File, bundleType, filename string, order int) boo
 		var err error
 		var f string
 		// Note that we are unmarshaling the "other" bundle.
-		if bundleType == "data" {
+		if bundleType == typeData {
 			var index api.IndexV1
 			err = json.Unmarshal([]byte(t), &index)
 			f = index.Filename
@@ -163,7 +168,7 @@ func fileInBundle(bundleFi *os.File, bundleType, filename string, order int) boo
 		}
 		if f == filename {
 			if *verbose {
-				fmt.Printf("FOUND at %d\n", i) //nolint:forbidigo
+				fmt.Printf("FOUND at %d\n", i)
 			}
 			if i != order {
 				log.Panicf("mismatch in order (%d != %d)", i, order)
@@ -171,6 +176,6 @@ func fileInBundle(bundleFi *os.File, bundleType, filename string, order int) boo
 			return true
 		}
 	}
-	fmt.Println("NOT FOUND") //nolint:forbidigo
+	fmt.Printf("NOT FOUND\n")
 	return false
 }
