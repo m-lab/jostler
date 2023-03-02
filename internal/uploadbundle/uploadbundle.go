@@ -82,30 +82,23 @@ type BundleConfig struct {
 	AgeMax    time.Duration // bundle will be uploaded when it reaches this age
 }
 
+// Exported errors.
+var (
+	ErrConfig       = errors.New("invalid configuration")
+	ErrNotInDataDir = errors.New("is not in data directory")
+	ErrTooShort     = errors.New("is too short")
+	ErrInvalidChars = errors.New("has invalid characters")
+	ErrDotDot       = errors.New("includes '..'")
+	ErrDateDir      = errors.New("is not in .../yyyy/mm/dd/... format")
+	ErrDotFile      = errors.New("starts with '.'")
+	ErrNotRegular   = errors.New("is not a regular file")
+	ErrEmpty        = errors.New("is empty")
+	ErrTooBig       = errors.New("is too big to fit in a bundle")
+)
+
 var (
 	weekDays   = 7   // entries in the map
 	numUploads = 100 // concurrent uploads
-
-	// ErrConfig error.
-	ErrConfig = errors.New("invalid configuration")
-	// ErrNotInDataDir error.
-	ErrNotInDataDir = errors.New("is not in data directory")
-	// ErrTooShort error.
-	ErrTooShort = errors.New("is too short")
-	// ErrInvalidChars error.
-	ErrInvalidChars = errors.New("has invalid characters")
-	// ErrDotDot error.
-	ErrDotDot = errors.New("includes '..'")
-	// ErrDateDir error.
-	ErrDateDir = errors.New("is not in .../yyyy/mm/dd/... format")
-	// ErrDotFile error.
-	ErrDotFile = errors.New("starts with '.'")
-	// ErrNotRegular error.
-	ErrNotRegular = errors.New("is not a regular file")
-	// ErrEmpty error.
-	ErrEmpty = errors.New("is empty")
-	// ErrTooBig error.
-	ErrTooBig = errors.New("is too big to fit in a bundle")
 
 	// Testing and debugging support.
 	verbose = func(fmt string, args ...interface{}) {}

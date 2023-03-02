@@ -32,23 +32,18 @@ type JSONLBundle struct {
 	Size       uint          // size of this bundle
 }
 
+// Exported errors.
 var (
-	// ErrReadFile error.
-	ErrReadFile = errors.New("failed to read file")
-	// ErrEmptyFile error.
-	ErrEmptyFile = errors.New("empty file")
-	// ErrInvalidJSON error.
-	ErrInvalidJSON = errors.New("failed to validate JSON")
-	// ErrNotOneLine error.
-	ErrNotOneLine = errors.New("is not one line")
-	// ErrMarshalStdCols error.
+	ErrReadFile       = errors.New("failed to read file")
+	ErrEmptyFile      = errors.New("empty file")
+	ErrInvalidJSON    = errors.New("failed to validate JSON")
+	ErrNotOneLine     = errors.New("is not one line")
 	ErrMarshalStdCols = errors.New("failed to marshal standard columns")
-	// ErrMarshalIndex error.
-	ErrMarshalIndex = errors.New("failed to marshal index")
-
-	// Testing and debugging support.
-	verbose = func(fmt string, args ...interface{}) {}
+	ErrMarshalIndex   = errors.New("failed to marshal index")
 )
+
+// Testing and debugging support.
+var verbose = func(fmt string, args ...interface{}) {}
 
 // Verbose provides a convenient way for the caller to enable verbose
 // printing and control its format (mostly for debugging).
