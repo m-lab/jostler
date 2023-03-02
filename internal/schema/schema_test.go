@@ -17,11 +17,11 @@ const (
 	testDatatype   = "foo1"
 )
 
-func TestVerbose(t *testing.T) { //nolint:paralleltest
+func TestVerbose(t *testing.T) {
 	schema.Verbose(func(fmt string, args ...interface{}) {})
 }
 
-func TestPathForDatatype(t *testing.T) { //nolint:paralleltest
+func TestPathForDatatype(t *testing.T) {
 	// Since PathForDatatype() should not download from or upload to
 	// GCS, set bucket to "" to force a panic in the local disk storage
 	// implementation.
@@ -71,7 +71,7 @@ func TestPathForDatatype(t *testing.T) { //nolint:paralleltest
 	}
 }
 
-func TestValidateAndUpload(t *testing.T) { //nolint:paralleltest,funlen
+func TestValidateAndUpload(t *testing.T) {
 	if testing.Verbose() {
 		schema.Verbose(testhelper.VLogf)
 		defer schema.Verbose(func(fmt string, args ...interface{}) {})

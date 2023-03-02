@@ -1,3 +1,6 @@
+// Package main implements a simple tool that mimics a measurement
+// service by creating measurement data files for jostler to bundle
+// and upload.
 package main
 
 import (
@@ -29,7 +32,7 @@ func main() {
 	}
 
 	if *experiment == "" || *datatype == "" {
-		fmt.Println("must specify both experiment and datatype") //nolint
+		fmt.Printf("must specify both experiment and datatype\n")
 		os.Exit(1)
 	}
 	createDateSubdirs()
@@ -41,7 +44,7 @@ func createDateSubdirs() {
 	for i := 0; i < *nDays; i++ {
 		dir := fmt.Sprintf("%s/%s/%s/%s", *localDataDir, *experiment, *datatype, now.AddDate(0, 0, -i).Format("2006/01/02"))
 		if *verbose {
-			fmt.Printf("creating %s\n", dir) //nolint
+			fmt.Printf("creating %s\n", dir)
 		}
 		if err := os.MkdirAll(dir, 0o755); err != nil {
 			panic(err)
@@ -58,13 +61,13 @@ func createDataFiles() {
 	n := 0
 	for {
 		// Favor today.
-		index := rand.Intn(len(dirs) + 21) //nolint
+		index := rand.Intn(len(dirs) + 21)
 		if index >= len(dirs) {
 			index = 0
 		}
 		createDataFile(index)
 		time.Sleep(*sleep)
-		fmt.Printf("%v\r", n) //nolint
+		fmt.Printf("%v\r", n)
 		n++
 	}
 }
@@ -74,7 +77,7 @@ func createDataFile(index int) {
 	now := time.Now().UTC().Format("T150405.000000Z")
 	filename := fmt.Sprintf("%s/%s.json", dirs[index], now)
 	if *verbose {
-		fmt.Printf("creating %v\n", filename) //nolint
+		fmt.Printf("creating %v\n", filename)
 	}
 	if err := os.WriteFile(filename, []byte(content), 0o666); err != nil {
 		panic(err)

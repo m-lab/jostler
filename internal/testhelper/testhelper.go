@@ -20,10 +20,14 @@ import (
 )
 
 const (
-	ANSIGreen  = "\033[00;32m"
-	ANSIBlue   = "\033[00;34m"
+	// ANSIGreen is the ANSI code for green.
+	ANSIGreen = "\033[00;32m"
+	// ANSIBlue is the ANSI code for blue.
+	ANSIBlue = "\033[00;34m"
+	// ANSIPurple is the ANSI code for purple.
 	ANSIPurple = "\033[00;35m"
-	ANSIEnd    = "\033[0m"
+	// ANSIEnd is the ANSI code to end an ANSI string.
+	ANSIEnd = "\033[0m"
 )
 
 // VLogf logs messages in verbose mode (mostly for debugging).  Messages
@@ -79,7 +83,7 @@ func NewClient(ctx context.Context, bucket string) (*StorageClient, error) {
 
 // Download mimics downloading from GCS.
 func (d *StorageClient) Download(ctx context.Context, objPath string) ([]byte, error) {
-	fmt.Printf("StorageClient.Download(): d.bucket=%v objPath=%v\n", d.bucket, objPath) //nolint:forbidigo
+	fmt.Printf("StorageClient.Download(): d.bucket=%v objPath=%v\n", d.bucket, objPath)
 	if !strings.Contains(d.bucket, "download") {
 		panic("unexpected call to Download()")
 	}
@@ -91,14 +95,14 @@ func (d *StorageClient) Download(ctx context.Context, objPath string) ([]byte, e
 		if errors.Is(err, os.ErrNotExist) {
 			return nil, storage.ErrObjectNotExist
 		}
-		return nil, err //nolint:wrapcheck
+		return nil, err
 	}
 	return contents, nil
 }
 
 // Upload mimics uploading to GCS.
 func (d *StorageClient) Upload(ctx context.Context, objPath string, contents []byte) error {
-	fmt.Printf("StorageClient.Upload(): d.bucket=%v objPath=%v len(contents)=%v\n", d.bucket, objPath, len(contents)) //nolint:forbidigo
+	fmt.Printf("StorageClient.Upload(): d.bucket=%v objPath=%v len(contents)=%v\n", d.bucket, objPath, len(contents))
 	if !strings.Contains(d.bucket, "upload") {
 		panic("unexpected call to Upload()")
 	}
@@ -114,7 +118,7 @@ func (d *StorageClient) Upload(ctx context.Context, objPath string, contents []b
 			panic("Upload(): MkdirAll")
 		}
 	}
-	return os.WriteFile(objPath, contents, 0o666) //nolint:wrapcheck
+	return os.WriteFile(objPath, contents, 0o666)
 }
 
 // WatchDir implements a directory watcher that mimics the watchdir

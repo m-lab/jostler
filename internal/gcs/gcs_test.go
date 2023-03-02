@@ -1,8 +1,9 @@
-package gcs //nolint:testpackage
+package gcs
 
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"testing"
 	"time"
@@ -12,11 +13,13 @@ import (
 	"google.golang.org/api/option"
 )
 
-func TestVerbose(t *testing.T) { //nolint:paralleltest
+var errForced = errors.New("forced failure")
+
+func TestVerbose(t *testing.T) {
 	Verbose(func(fmt string, args ...interface{}) {})
 }
 
-func TestNewClient(t *testing.T) { //nolint:paralleltest
+func TestNewClient(t *testing.T) {
 	saveStorageNewClient := storageNewClient
 	defer func() {
 		storageNewClient = saveStorageNewClient
@@ -37,12 +40,12 @@ func TestNewClient(t *testing.T) { //nolint:paralleltest
 
 func testNewClient(ctx context.Context, opts ...option.ClientOption) (*storage.Client, error) {
 	if _, ok := ctx.Deadline(); !ok {
-		return nil, errors.New("forced failure") //nolint:goerr113
+		return nil, fmt.Errorf("%w", errForced)
 	}
 	return &storage.Client{}, nil
 }
 
-func TestDownloadSucceed(t *testing.T) { //nolint:paralleltest
+func TestDownloadSucceed(t *testing.T) {
 	gcsClient := fakeGCSClient()
 	_, err := gcsClient.Download(context.Background(), "should-succeed")
 	if err != nil {
@@ -50,7 +53,7 @@ func TestDownloadSucceed(t *testing.T) { //nolint:paralleltest
 	}
 }
 
-func TestDownloadFail(t *testing.T) { //nolint:paralleltest
+func TestDownloadFail(t *testing.T) {
 	gcsClient := fakeGCSClient()
 	_, err := gcsClient.Download(context.Background(), "should-fail-new-reader")
 	if !errors.Is(err, io.EOF) {
@@ -64,7 +67,7 @@ func TestDownloadFail(t *testing.T) { //nolint:paralleltest
 	}
 }
 
-func TestUploadSucceed(t *testing.T) { //nolint:paralleltest
+func TestUploadSucceed(t *testing.T) {
 	gcsClient := fakeGCSClient()
 	err := gcsClient.Upload(context.Background(), "should-succeed", []byte("should-succeed"))
 	if err != nil {
@@ -72,7 +75,7 @@ func TestUploadSucceed(t *testing.T) { //nolint:paralleltest
 	}
 }
 
-func TestUploadFail(t *testing.T) { //nolint:paralleltest
+func TestUploadFail(t *testing.T) {
 	gcsClient := fakeGCSClient()
 	err := gcsClient.Upload(context.Background(), "upload-contents", []byte("should-fail-write"))
 	if !errors.Is(err, errUploadObject) {
@@ -95,7 +98,7 @@ func fakeGCSClient() *StorageClient {
 	return newStorageClient("some-bucket", &f, f.Bucket("some-bucket"))
 }
 
-func (f fakeClient) Bucket(name string) stiface.BucketHandle { //nolint:ireturn
+func (f fakeClient) Bucket(name string) stiface.BucketHandle {
 	return &fakeBucketHandle{}
 }
 
@@ -103,7 +106,7 @@ type fakeBucketHandle struct {
 	stiface.BucketHandle
 }
 
-func (f fakeBucketHandle) Object(name string) stiface.ObjectHandle { //nolint:ireturn
+func (f fakeBucketHandle) Object(name string) stiface.ObjectHandle {
 	return fakeObjectHandle{name: name}
 }
 
@@ -112,14 +115,14 @@ type fakeObjectHandle struct {
 	name string
 }
 
-func (f fakeObjectHandle) NewReader(ctx context.Context) (stiface.Reader, error) { //nolint:ireturn
+func (f fakeObjectHandle) NewReader(ctx context.Context) (stiface.Reader, error) {
 	if f.name == "should-fail-new-reader" {
 		return nil, io.EOF
 	}
 	return &fakeReader{data: []byte(f.name)}, nil
 }
 
-func (f fakeObjectHandle) NewWriter(ctx context.Context) stiface.Writer { //nolint:ireturn
+func (f fakeObjectHandle) NewWriter(ctx context.Context) stiface.Writer {
 	return &fakeWriter{}
 }
 

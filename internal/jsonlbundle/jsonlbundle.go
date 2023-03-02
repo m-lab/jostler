@@ -1,4 +1,4 @@
-// Package jsonbundle implements logic to process a single JSONL bundle.
+// Package jsonlbundle implements logic to process a single JSONL bundle.
 package jsonlbundle
 
 import (
@@ -32,6 +32,7 @@ type JSONLBundle struct {
 	Size       uint          // size of this bundle
 }
 
+// Exported errors.
 var (
 	ErrReadFile       = errors.New("failed to read file")
 	ErrEmptyFile      = errors.New("empty file")
@@ -39,10 +40,10 @@ var (
 	ErrNotOneLine     = errors.New("is not one line")
 	ErrMarshalStdCols = errors.New("failed to marshal standard columns")
 	ErrMarshalIndex   = errors.New("failed to marshal index")
-
-	// Testing and debugging support.
-	verbose = func(fmt string, args ...interface{}) {}
 )
+
+// Testing and debugging support.
+var verbose = func(fmt string, args ...interface{}) {}
 
 // Verbose provides a convenient way for the caller to enable verbose
 // printing and control its format (mostly for debugging).

@@ -31,12 +31,8 @@ type (
 	}
 )
 
+// Exported errors.
 var (
-	LocalDataDir          = "/var/spool"
-	GCSDataDir            = "autoload/v1"
-	dtSchemaPathTemplate  = "/datatypes/<datatype>.json"
-	tblSchemaPathTemplate = "/tables/<experiment>/<datatype>.table.json"
-
 	ErrStorageClient  = errors.New("failed to create storage client")
 	ErrReadSchema     = errors.New("failed to read schema file")
 	ErrEmptySchema    = errors.New("empty schema file")
@@ -49,6 +45,15 @@ var (
 	ErrType           = errors.New("unexpected type")
 	ErrDownload       = errors.New("failed to download schema")
 	ErrUpload         = errors.New("failed to upload schema")
+)
+
+var (
+	// LocalDataDir is the root of the local directory.
+	LocalDataDir = "/var/spool"
+	// GCSDataDir is the left-most prefix ("root") of GCS objects.
+	GCSDataDir            = "autoload/v1"
+	dtSchemaPathTemplate  = "/datatypes/<datatype>.json"
+	tblSchemaPathTemplate = "/tables/<experiment>/<datatype>.table.json"
 
 	// Testing and debugging support.
 	verbosef = func(fmt string, args ...interface{}) {}

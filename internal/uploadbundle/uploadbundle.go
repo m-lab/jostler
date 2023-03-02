@@ -82,10 +82,8 @@ type BundleConfig struct {
 	AgeMax    time.Duration // bundle will be uploaded when it reaches this age
 }
 
+// Exported errors.
 var (
-	weekDays   = 7   // entries in the map
-	numUploads = 100 // concurrent uploads
-
 	ErrConfig       = errors.New("invalid configuration")
 	ErrNotInDataDir = errors.New("is not in data directory")
 	ErrTooShort     = errors.New("is too short")
@@ -96,6 +94,11 @@ var (
 	ErrNotRegular   = errors.New("is not a regular file")
 	ErrEmpty        = errors.New("is empty")
 	ErrTooBig       = errors.New("is too big to fit in a bundle")
+)
+
+var (
+	weekDays   = 7   // entries in the map
+	numUploads = 100 // concurrent uploads
 
 	// Testing and debugging support.
 	verbose = func(fmt string, args ...interface{}) {}

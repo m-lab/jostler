@@ -1,4 +1,4 @@
-package jsonlbundle //nolint:testpackage
+package jsonlbundle
 
 import (
 	"errors"
@@ -12,7 +12,7 @@ import (
 	"github.com/m-lab/jostler/internal/testhelper"
 )
 
-func TestVerbose(t *testing.T) { //nolint:paralleltest
+func TestVerbose(t *testing.T) {
 	Verbose(func(fmt string, args ...interface{}) {})
 }
 
@@ -87,7 +87,7 @@ func TestHasFile(t *testing.T) {
 	}
 }
 
-func TestAddFile(t *testing.T) { //nolint:paralleltest
+func TestAddFile(t *testing.T) {
 	tests := []struct {
 		file    string
 		wantErr error
@@ -147,7 +147,7 @@ func TestAddFile(t *testing.T) { //nolint:paralleltest
 	}
 }
 
-func TestRemoveLocalFiles(t *testing.T) { //nolint:paralleltest
+func TestRemoveLocalFiles(t *testing.T) {
 	jb := newTestJb(time.Now().UTC())
 	fullPaths := []string{"testdata/fullpath1.json", "testdata/fullpath2.json"}
 	badFiles := []string{"testdata/badfile1.json", "testdata/badfile2.json"}

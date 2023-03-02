@@ -1,4 +1,4 @@
-package uploadbundle //nolint:testpackage
+package uploadbundle
 
 import (
 	"context"
@@ -12,11 +12,11 @@ import (
 	"github.com/m-lab/jostler/internal/watchdir"
 )
 
-func TestVerbose(t *testing.T) { //nolint:paralleltest
+func TestVerbose(t *testing.T) {
 	Verbose(func(fmt string, args ...interface{}) {})
 }
 
-func TestNew(t *testing.T) { //nolint:paralleltest
+func TestNew(t *testing.T) {
 	wdClient, err := testhelper.WatchDirNew("/some/path")
 	if err != nil {
 		t.Fatalf("testhelper.WatchDirNew() = %v, want nil", err)
@@ -121,7 +121,7 @@ func TestNew(t *testing.T) { //nolint:paralleltest
 	}
 }
 
-func TestBundleAndUploadCtx(t *testing.T) { //nolint:paralleltest
+func TestBundleAndUploadCtx(t *testing.T) {
 	Verbose(testhelper.VLogf)
 
 	// BundleAndUpload() returns when its context is canceled.
@@ -140,7 +140,7 @@ func TestBundleAndUploadCtx(t *testing.T) { //nolint:paralleltest
 	}
 }
 
-func TestBundleAndUploadTooBig(t *testing.T) { //nolint:paralleltest
+func TestBundleAndUploadTooBig(t *testing.T) {
 	Verbose(testhelper.VLogf)
 
 	// Force not enough room in the bundle by setting sizeMax to a

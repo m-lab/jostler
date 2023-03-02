@@ -23,8 +23,18 @@ import (
 	"github.com/m-lab/jostler/api"
 )
 
-var verbose = flag.Bool("verbose", false, "enable verbose mode")
+var (
+	typeData  = "data"
+	typeIndex = "index"
 
+	verbose = flag.Bool("verbose", false, "enable verbose mode")
+)
+
+// StandardColumnsV0 defines version 0 of the standard columns included
+// in every line (row) along with the raw data from the measurement service.
+//
+// We have to define it because Raw has to be defined as string in
+// api.StandardColumnsV0 and as any here.
 type StandardColumnsV0 struct {
 	Archiver api.ArchiverV0 `bigquery:"archiver"` // archiver details
 	Raw      any            `bigquery:"raw"`      // measurement data (file contents) in JSON format
@@ -48,9 +58,9 @@ func walkDir(dir string) {
 		}
 		bundleType := ""
 		if strings.HasSuffix(path, "-data.jsonl.gz") {
-			bundleType = "data"
+			bundleType = typeData
 		} else if strings.HasSuffix(path, "-index1.jsonl.gz") {
-			bundleType = "index"
+			bundleType = typeIndex
 		}
 		if bundleType != "" {
 			checkBundle(path, bundleType)
@@ -76,10 +86,10 @@ func checkBundle(thisBundle, bundleType string) {
 	// 2. Verify there is corresponding bundle for this bundle.
 	var otherBundle string
 	switch bundleType {
-	case "data":
+	case typeData:
 		otherBundle = strings.ReplaceAll(thisBundle, "/datatype1/", "/index1/")
 		otherBundle = strings.ReplaceAll(otherBundle, "-data.jsonl.gz", "-index1.jsonl.gz")
-	case "index":
+	case typeIndex:
 		otherBundle = strings.ReplaceAll(thisBundle, "/index1/", "/datatype1/")
 		otherBundle = strings.ReplaceAll(otherBundle, "-index1.jsonl.gz", "-data.jsonl.gz")
 	default:
@@ -103,7 +113,7 @@ func checkBundle(thisBundle, bundleType string) {
 		t := s.Text()
 		var err error
 		var filename string
-		if bundleType == "data" {
+		if bundleType == typeData {
 			var stdCols StandardColumnsV0
 			err = json.Unmarshal([]byte(t), &stdCols)
 			filename = stdCols.Archiver.Filename
@@ -144,7 +154,7 @@ func fileInBundle(bundleFi *os.File, bundleType, filename string, order int) boo
 		var err error
 		var f string
 		// Note that we are unmarshaling the "other" bundle.
-		if bundleType == "data" {
+		if bundleType == typeData {
 			var index api.IndexV1
 			err = json.Unmarshal([]byte(t), &index)
 			f = index.Filename
@@ -166,6 +176,6 @@ func fileInBundle(bundleFi *os.File, bundleType, filename string, order int) boo
 			return true
 		}
 	}
-	fmt.Println("NOT FOUND")
+	fmt.Printf("NOT FOUND\n")
 	return false
 }
