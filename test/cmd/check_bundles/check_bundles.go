@@ -27,7 +27,8 @@ var (
 	typeData  = "data"
 	typeIndex = "index"
 
-	verbose = flag.Bool("verbose", false, "enable verbose mode")
+	datatype = flag.String("datatype", "datatype1", "datatype")
+	verbose  = flag.Bool("verbose", false, "enable verbose mode")
 )
 
 // StandardColumnsV0 defines version 0 of the standard columns included
@@ -85,12 +86,13 @@ func checkBundle(thisBundle, bundleType string) {
 
 	// 2. Verify there is corresponding bundle for this bundle.
 	var otherBundle string
+	dt := fmt.Sprintf("/%s/", *datatype)
 	switch bundleType {
 	case typeData:
-		otherBundle = strings.ReplaceAll(thisBundle, "/datatype1/", "/index1/")
+		otherBundle = strings.ReplaceAll(thisBundle, dt, "/index1/")
 		otherBundle = strings.ReplaceAll(otherBundle, "-data.jsonl.gz", "-index1.jsonl.gz")
 	case typeIndex:
-		otherBundle = strings.ReplaceAll(thisBundle, "/index1/", "/datatype1/")
+		otherBundle = strings.ReplaceAll(thisBundle, "/index1/", dt)
 		otherBundle = strings.ReplaceAll(otherBundle, "-index1.jsonl.gz", "-data.jsonl.gz")
 	default:
 		log.Panicf("invalid bundle type %v", bundleType)
