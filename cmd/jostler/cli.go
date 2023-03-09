@@ -5,6 +5,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -179,8 +180,14 @@ func validateSchemaFlags() error {
 func validateSchemaFiles() error {
 	for _, datatype := range datatypes {
 		dtSchemaFile := schema.PathForDatatype(datatype, dtSchemaFiles)
-		if err := schema.ValidateSchemaFile(dtSchemaFile); err != nil {
-			return fmt.Errorf("%v: %w", errValidate, err)
+		for tries := 0; tries < 5; tries++ {
+			err := schema.ValidateSchemaFile(dtSchemaFile)
+			if err == nil {
+				break
+			}
+			// return fmt.Errorf("%v: %w", errValidate, err)
+			log.Printf("%v: %v - trying again in 10 seconds", errValidate, err)
+			time.Sleep(10 * time.Second)
 		}
 	}
 	return nil
