@@ -42,6 +42,7 @@ var (
 	verbose      bool
 	gcsLocalDisk bool
 	testInterval time.Duration
+	maxTries     int
 
 	// Errors related to command line parsing and validation.
 	errExtraArgs      = errors.New("extra arguments on the command line")
@@ -79,6 +80,7 @@ func initFlags() {
 	flag.BoolVar(&verbose, "verbose", false, "enable verbose mode")
 	flag.BoolVar(&gcsLocalDisk, "gcs-local-disk", false, "use local disk storage instead of cloud storage (for test purposes only)")
 	flag.DurationVar(&testInterval, "test-interval", 0, "time interval to stop running (for test purposes only)")
+	flag.IntVar(&maxTries, "max-tries", 1, "maximum number of tries reading datatype schema files")
 
 	flag.Var(&dtSchemaFiles, "datatype-schema-file", "schema for each datatype in the format <datatype>:<pathname>")
 	flag.Var(&extensions, "extensions", "filename extensions to watch within <data-dir>/<experiment>")
@@ -180,14 +182,20 @@ func validateSchemaFlags() error {
 func validateSchemaFiles() error {
 	for _, datatype := range datatypes {
 		dtSchemaFile := schema.PathForDatatype(datatype, dtSchemaFiles)
-		for tries := 0; tries < 5; tries++ {
-			err := schema.ValidateSchemaFile(dtSchemaFile)
-			if err == nil {
+		var err error
+		tries := 0
+		for {
+			tries++
+			log.Printf("validating %v (tries=%v maxTries=%v)\n", dtSchemaFile, tries, maxTries)
+			err = schema.ValidateSchemaFile(dtSchemaFile)
+			if err == nil || tries >= maxTries {
 				break
 			}
-			// return fmt.Errorf("%v: %w", errValidate, err)
-			log.Printf("%v: %v - trying again in 10 seconds", errValidate, err)
+			log.Printf("%v: %v - trying again in 10 seconds\n", errValidate, err)
 			time.Sleep(10 * time.Second)
+		}
+		if err != nil {
+			return fmt.Errorf("%v: %w", errValidate, err)
 		}
 	}
 	return nil
