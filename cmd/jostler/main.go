@@ -144,6 +144,10 @@ func daemonMode() error {
 // missed) files.
 func startWatcher(mainCtx context.Context, mainCancel context.CancelFunc, status chan<- error, datatype string, watchEvents []notify.Event) (*watchdir.WatchDir, error) {
 	watchDir := filepath.Join(localDataDir, experiment, datatype)
+	// Create the directory to watch if it doesn't already exist.
+	if err := os.MkdirAll(watchDir, 0o755); err != nil {
+		return nil, fmt.Errorf("failed to create directory: %w", err)
+	}
 	wdClient, err := watchdir.New(watchDir, extensions, watchEvents, missedAge, missedInterval)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate watcher: %w", err)
