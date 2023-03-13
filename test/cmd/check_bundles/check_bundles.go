@@ -97,6 +97,9 @@ func checkBundle(thisBundle, bundleType string) {
 	default:
 		log.Panicf("invalid bundle type %v", bundleType)
 	}
+	if *verbose {
+		fmt.Printf("corresponding bundle %v\n", otherBundle)
+	}
 	otherFi, err := os.Open(otherBundle)
 	if err != nil {
 		log.Panicf("failed to open %v: %v", otherBundle, err)
@@ -109,8 +112,8 @@ func checkBundle(thisBundle, bundleType string) {
 	if err != nil {
 		log.Panicf("failed to instantiate reader %v: %v", thisBundle, err)
 	}
-	s := bufio.NewScanner(r)
-	s.Split(bufio.ScanLines)
+	// Create a new Scanner with a buffer large enough for long lines.
+	s := newScanner(r)
 	for i := 0; s.Scan(); i++ {
 		t := s.Text()
 		var err error
@@ -142,15 +145,14 @@ func checkBundle(thisBundle, bundleType string) {
 
 func fileInBundle(bundleFi *os.File, bundleType, filename string, order int) bool {
 	if *verbose {
-		fmt.Printf("%s at %d ", filename, order)
+		fmt.Printf("expecting %s at %d ", filename, order)
 	}
 	r, err := gzip.NewReader(bundleFi)
 	if err != nil {
 		log.Panicf("failed to instantiate reader for index bundle %v: %v", bundleFi.Name(), err)
 	}
 	defer r.Close()
-	s := bufio.NewScanner(r)
-	s.Split(bufio.ScanLines)
+	s := newScanner(r)
 	for i := 0; s.Scan(); i++ {
 		t := s.Text()
 		var err error
@@ -180,4 +182,13 @@ func fileInBundle(bundleFi *os.File, bundleType, filename string, order int) boo
 	}
 	fmt.Printf("NOT FOUND\n")
 	return false
+}
+
+// Create a new Scanner with a buffer large enough for long lines.
+func newScanner(r *gzip.Reader) *bufio.Scanner {
+	s := bufio.NewScanner(r)
+	buf := make([]byte, 0, 128*1024)
+	s.Buffer(buf, 1024*1024)
+	s.Split(bufio.ScanLines)
+	return s
 }
