@@ -1,35 +1,22 @@
 issues:
   exclude-rules:
-    - linters:
+    - path: test/
+      linters:
         - cyclop
-      path: test/
-    - linters:
         - forbidigo
-      path: testhelper/
-    - linters:
-        - forbidigo
-      path: test/
-    - linters:
         - funlen
-      path: _test.go
-    - linters:
-        - funlen
-      path: test/
-    - linters:
+        - gocyclo
         - gosec
-      path: test/
-    - linters:
-        - ireturn
-      path: _test.go
-    - linters:
-        - paralleltest
-      path: _test.go
-    - linters:
-        - testpackage
-      path: _test.go
-    - linters:
+    - path: testhelper/
+      linters:
+        - forbidigo
         - wrapcheck
-      path: testhelper/
+    - path: _test\.go
+      linters:
+        - funlen
+        - ireturn
+        - paralleltest
+        - testpackage
 linters-settings:
   cyclop:
     max-complexity: 15
