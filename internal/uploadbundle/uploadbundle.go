@@ -36,6 +36,8 @@ import (
 
 	"github.com/m-lab/jostler/internal/jsonlbundle"
 	"github.com/m-lab/jostler/internal/watchdir"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
 // DirWatcher defines the interface of a directory watcher.
@@ -99,6 +101,14 @@ var (
 var (
 	weekDays   = 7   // entries in the map
 	numUploads = 100 // concurrent uploads
+
+	jostlerBytesPerBundle = promauto.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "jostler_bytes_per_bundle",
+			Help:    "The number of bytes in each JSONL bundle jostler has uploaded",
+			Buckets: []float64{1e3, 1e4, 1e5, 1e6, 1e7, 1e8, 1e9},
+		},
+		[]string{"datatype"})
 
 	// Testing and debugging support.
 	verbose = func(fmt string, args ...interface{}) {}
@@ -314,7 +324,7 @@ func (ub *UploadBundle) uploadInBackground(ctx context.Context, jb *jsonlbundle.
 		// Upload data bundle.
 		objPath := filepath.Join(jb.BundleDir, jb.BundleName)
 		contents := []byte(strings.Join(jb.Lines, "\n"))
-		if err = gzipAndUpload(ctx, ub.gcsConf.GCSClient, objPath, contents); err != nil {
+		if err = gzipAndUpload(ctx, ub.gcsConf.GCSClient, objPath, jb.Datatype, contents); err != nil {
 			log.Printf("ERROR: data bundle %v: %v\n", jb.Description(), err)
 			return
 		}
@@ -326,7 +336,7 @@ func (ub *UploadBundle) uploadInBackground(ctx context.Context, jb *jsonlbundle.
 			log.Printf("ERROR: failed to marshal index for bundle %v: %v\n", jb.Description(), err)
 			return
 		}
-		if err = gzipAndUpload(ctx, ub.gcsConf.GCSClient, objPath, contents); err != nil {
+		if err = gzipAndUpload(ctx, ub.gcsConf.GCSClient, objPath, "index1", contents); err != nil {
 			log.Printf("ERROR: index bundle %v: %v\n", jb.Description(), err)
 			return
 		}
@@ -343,7 +353,7 @@ func (ub *UploadBundle) uploadInBackground(ctx context.Context, jb *jsonlbundle.
 
 // gzipAndUpload compresses the specified contents and uploads it via
 // the specified upload client.
-func gzipAndUpload(ctx context.Context, gcsClient Uploader, objPath string, contents []byte) error {
+func gzipAndUpload(ctx context.Context, gcsClient Uploader, objPath, datatype string, contents []byte) error {
 	var gzContents bytes.Buffer
 	gzipWriter := gzip.NewWriter(&gzContents)
 	if _, err := gzipWriter.Write(contents); err != nil {
@@ -357,5 +367,6 @@ func gzipAndUpload(ctx context.Context, gcsClient Uploader, objPath string, cont
 	if err := gcsClient.Upload(ctx, objPath, gzContents.Bytes()); err != nil {
 		return fmt.Errorf("failed to upload: %w", err)
 	}
+	jostlerBytesPerBundle.WithLabelValues(datatype).Observe(float64(len(contents)))
 	return nil
 }
