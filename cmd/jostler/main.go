@@ -11,9 +11,10 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/m-lab/go/host"
 	"github.com/rjeczalik/notify"
 
+	"github.com/m-lab/go/host"
+	"github.com/m-lab/go/prometheusx"
 	"github.com/m-lab/jostler/internal/gcs"
 	"github.com/m-lab/jostler/internal/schema"
 	"github.com/m-lab/jostler/internal/testhelper"
@@ -78,6 +79,13 @@ func localMode() error {
 // upload to GCS.
 func daemonMode() error {
 	mainCtx, mainCancel := context.WithCancel(context.Background())
+	promSrv := prometheusx.MustServeMetrics()
+	defer func() {
+		if err := promSrv.Shutdown(mainCtx); err != nil && !errors.Is(err, context.Canceled) {
+			log.Printf("failed to shut down Prometheus server (error: %v)", err)
+		}
+	}()
+
 	// Create a storage client.
 	// The gcsLocalDisk flag is meant for e2e testing where we want to read
 	// from and write to the local disk storage instead of cloud storage.

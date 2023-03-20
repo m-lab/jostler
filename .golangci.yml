@@ -1,6 +1,6 @@
 issues:
   exclude-rules:
-    - path: test/
+    - path: test/cmd
       linters:
         - cyclop
         - forbidigo
