@@ -106,7 +106,7 @@ var (
 		prometheus.HistogramOpts{
 			Name:    "jostler_bytes_per_bundle",
 			Help:    "The number of bytes in each JSONL bundle jostler has uploaded",
-			Buckets: []float64{1e3, 1e4, 1e5, 1e6, 1e7, 1e8, 1e9},
+			Buckets: []float64{1e2, 1e3, 1e4, 1e5, 1e6, 1e7, 1e8},
 		},
 		[]string{"datatype"})
 
@@ -364,9 +364,10 @@ func gzipAndUpload(ctx context.Context, gcsClient Uploader, objPath, datatype st
 	}
 
 	verbose("uploading %v", objPath)
-	if err := gcsClient.Upload(ctx, objPath, gzContents.Bytes()); err != nil {
+	gzBytes := gzContents.Bytes()
+	if err := gcsClient.Upload(ctx, objPath, gzBytes); err != nil {
 		return fmt.Errorf("failed to upload: %w", err)
 	}
-	jostlerBytesPerBundle.WithLabelValues(datatype).Observe(float64(len(contents)))
+	jostlerBytesPerBundle.WithLabelValues(datatype).Observe(float64(len(gzBytes)))
 	return nil
 }
