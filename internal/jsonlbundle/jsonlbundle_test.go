@@ -191,3 +191,12 @@ func newJb(bucket, gcsDataDir, gcsIndexDir, gcsBaseID, datatype, dateSubdir stri
 		bucket:     bucket,
 	}
 }
+
+func Test_dirName(t *testing.T) {
+	dir := "gs://bucket/autoload/v1/experiment/datatype"
+	time := time.Date(2023, 03, 30, 4, 4, 0, 0, time.UTC)
+	want := dir + "/2023/03/30"
+	if got := dirName(dir, time); got != want {
+		t.Errorf("dirName() = %v, want %v", got, want)
+	}
+}

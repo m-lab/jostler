@@ -14,9 +14,9 @@
 // GCS object names of JSONL bundles and their corresponding indices
 // have the following format:
 //
-//	autoload/v1/<experiment>/<datatype>/date=<yyyy>-<mm>-<dd>/<timestamp>-<datatype>-<node>-<experiment>.jsonl.gz
+//	autoload/v1/<experiment>/<datatype>/<yyyy>/<mm>/<dd>/<timestamp>-<datatype>-<node>-<experiment>.jsonl.gz
 //	|--------GCSConfig.DataDir--------|                                   |-------GCSConfig.BaseID-----|
-//	autoload/v1/<experiment>/index1/date=<yyyy>-<mm>-<dd>/<timestamp>-<datatype>-<node>-<experiment>.index.gz
+//	autoload/v1/<experiment>/index1/<yyyy>/<mm>/<dd>/<timestamp>-<datatype>-<node>-<experiment>.index.gz
 //	|------GCSConfig.IndexDir-----|                                   |-------GCSConfig.BaseID-----|
 package uploadbundle
 

@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/m-lab/go/timex"
 	"github.com/m-lab/jostler/api"
 )
 
@@ -56,9 +57,9 @@ func Verbose(v func(string, ...interface{})) {
 // GCS object names of data bundles and index bundles follow the
 // following formats:
 //
-//	autoload/v1/<experiment>/<datatype>/date=<yyyy>-<mm>-<dd>/<timestamp>-<datatype>-<node>-<experiment>-data.jsonl
+//	autoload/v1/<experiment>/<datatype>/<yyyy>/<mm>/<dd>/<timestamp>-<datatype>-<node>-<experiment>-data.jsonl
 //	|--------GCSConfig.DataDir--------|                                   |------GCSConfig.BaseID------|
-//	autoload/v1/<experiment>/index1/date=<yyyy>-<mm>-<dd>/<timestamp>-<datatype>-<node>-<experiment>-index1.jsonl
+//	autoload/v1/<experiment>/index1/<yyyy>/<mm>/<dd>/<timestamp>-<datatype>-<node>-<experiment>-index1.jsonl
 //	|------GCSConfig.IndexDir-----|                                   |------GCSConfig.BaseID------|
 func New(bucket, gcsDataDir, gcsIndexDir, gcsBaseID, datatype, dateSubdir string) *JSONLBundle {
 	nowUTC := time.Now().UTC()
@@ -204,5 +205,5 @@ func objectName(t time.Time, gcsBaseID, bundleType string) string {
 }
 
 func dirName(gcsDir string, t time.Time) string {
-	return fmt.Sprintf("%s/date=%s", gcsDir, t.Format("2006-01-02"))
+	return fmt.Sprintf("%s/%s", gcsDir, t.Format(timex.YYYYMMDDWithSlash))
 }
