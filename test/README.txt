@@ -54,7 +54,7 @@ in the subdirectories of:
 and are deleted by jostler after data and index bundles are "uploaded" to the
 following directory:
 
-	e2e/gcs/autoload/v1/$EXPERIMENT/$DATAYPE/date=<yyyy>-<mm>-<dd>
+	e2e/gcs/autoload/v1/$EXPERIMENT/$DATAYPE/<yyyy>/<mm>/<dd>
 
 If you'd like, you can run check_bundles to verify the correctness of
 data and index bundles as follows:

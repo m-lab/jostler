@@ -249,11 +249,11 @@ In summary, by default:
     ```
 4. JSONL data bundles will be uploaded to GCS as:
     ```
-    autoload/v1/<experiment>/<datatype>/date=<yyyy>-<mm>-<dd>/<timestamp>-<datatype>-<node>-<experiment>-data.jsonl.gz
+    autoload/v1/<experiment>/<datatype>/<yyyy>/<mm>/<dd>/<timestamp>-<datatype>-<node>-<experiment>-data.jsonl.gz
     ```
 5. JSONL index bundles will be uploaded to GCS as:
     ```
-    autoload/v1/<experiment>/<datatype>/date=<yyyy>-<mm>-<dd>/<timestamp>-<datatype>-<node>-<experiment>-index1.jsonl.gz
+    autoload/v1/<experiment>/<datatype>/<yyyy>/<mm>/<dd>/<timestamp>-<datatype>-<node>-<experiment>-index1.jsonl.gz
     ```
 
 ### 2.6. `jostler` configuration
@@ -262,7 +262,7 @@ In summary, by default:
 
 * bucket name: for example` pusher-mlab-{sandbox,staging,oti}`
 * home folder: object name starts with this string (e.g., `autoload/v1)`
-* M-Lab node name:` `parsed and used in object names (examples in 
+* M-Lab node name:` `parsed and used in object names (examples in
 
 **Bundle configuration**
 * maximum size: maximum size before it is uploaded
