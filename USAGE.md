@@ -95,7 +95,10 @@ directory, using the [recommended directory structure][jostler-dirs].
 [jostler-dirs]: https://github.com/m-lab/jostler#25-default-paths-and-object-names
 
 The outermost JSON type for your measurement result should be an object, i.e.
-`{...}`. This object may contain any number of named fields or repeated records.
+`{...}`. The object should be formatted as a single line (not pretty printed).
+This object may contain any number of named fields or repeated records.
+
+NOTE: the example is pretty printed for clarity, but an actual file should not be.
 
 ```json
 {
@@ -110,7 +113,8 @@ The outermost JSON type for your measurement result should be an object, i.e.
 ```
 
 While JSON allows mixed type arrays (e.g. `["a", 1, {}]`), BigQuery does not.
-Any array types must use identical repeated types, defined by the result SCHEMA.
+Any array types must use identical repeated element types, defined by the result
+SCHEMA.
 
 Once written to disk, the jostler will read the JSON results and bundle them
 together into larger JSONL files. Once enough data has been read or enough time
