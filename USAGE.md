@@ -36,7 +36,7 @@ column definition must include:
 
 * The column's name, e.g. latitude.
 * The column's type, e.g. `FLOAT`, `RECORD`, see all [options for type][tablefieldschema].
-* The column mode, i.e. `NULLABLE` or `REPEATED`. Do not use `REQUIRED`.
+* The column mode for array types, i.e. `REPEATED`. Do not use `REQUIRED`.
 
 The column definition may contain:
 
@@ -55,11 +55,10 @@ Example JSON Schema:
 ```json
 [
     {
-      "description": "geometry record for server locations",
+      "description": "Geometry record for server locations",
       "fields": [
         {
           "description": "",
-          "mode": "NULLABLE",
           "name": "type",
           "type": "STRING"
         },
@@ -69,13 +68,11 @@ Example JSON Schema:
           "type": "FLOAT"
         }
       ],
-      "mode": "NULLABLE",
       "name": "geometry",
       "type": "RECORD"
     },
     {
       "description": "Unique measurement identifier, may be joined with other tables",
-      "mode": "NULLABLE",
       "name": "id",
       "type": "STRING"
     }
@@ -103,12 +100,10 @@ NOTE: the example is pretty printed for clarity, but an actual file should not b
 ```json
 {
     "id": "1234567",
-    "start_time": "2023-03-01T11:34:10Z",
-    "samples": [
-        {"a": 1},
-        {"b": 3},
-        {"c": 2}
-    ]
+    "geometry": {
+        "type": "server",
+        "coordinates": [1.23, 3.45]
+    }
 }
 ```
 
