@@ -151,7 +151,7 @@ Example JSON Schema:
 
 #### Using Golang bigquery.InferSchema
 
-If your service is written with Golang, you can use [`bigquery.InferSchema`][1]
+If your service is written with Golang, you can use [`bigquery.InferSchema`][gobq]
 with a Go structure to produce usable schema file. For example, the NDT server
 includes this logic to produce a JSON schema from the ndt7 structure.
 
@@ -179,7 +179,38 @@ rtx.Must(err, "failed to marshal schema")
 ioutil.WriteFile("schema.json", b, 0o644)
 ```
 
-[1]: https://pkg.go.dev/cloud.google.com/go/bigquery#InferSchema
+[gobq]: https://pkg.go.dev/cloud.google.com/go/bigquery#InferSchema
+
+#### Using Python
+
+If your service is written with Python, you can use the
+[`bigquery.SchemaField`][pybq] type to explicitly construct a schema that can
+generate a JSON schema file.
+
+```python
+from google.cloud import bigquery
+import json
+
+# Define BigQuery schema.
+schema = [
+    bigquery.SchemaField("UUID", "STRING"),
+    bigquery.SchemaField("StartTime", "TIMESTAMP"),
+    bigquery.SchemaField("Server", "STRING"),
+    bigquery.SchemaField("Client", "STRING"),
+    bigquery.SchemaField("Samples", "RECORD", mode="REPEATED", fields=[
+        bigquery.SchemaField("MinRTT", "FLOAT"),
+        bigquery.SchemaField("RTT", "FLOAT"),
+        bigquery.SchemaField("RTTVar", "FLOAT")
+    ])
+]
+
+# Output schema as JSON.
+schema = json.dumps([field.to_api_repr() for field in schema])
+with open('schema.json', 'w') as f:
+    f.write(schema)
+```
+
+[pybq]: https://cloud.google.com/python/docs/reference/bigquery/latest
 
 #### Generating Schema from Sample JSON Object
 
