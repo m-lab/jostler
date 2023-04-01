@@ -17,17 +17,63 @@ accessible and useful to you and others.
 Since jostler is optimized for JSON datatypes, measurement services deployed
 with the jostler uploader agent must:
 
-* Provide a SCHEMA definition for each result datatype (i.e. each BigQuery table)
 * Save measurement results as one JSON object per file
+* Provide a SCHEMA definition for each result datatype (i.e. each BigQuery table)
 
-The following two sections define a schema file and discuss the JSON result
-format.
+The following two sections discuss the JSON result format and define a schema
+file for a sample result type.
 
 The jostler is designed to operate similarly to the pusher. The pusher ["API
 Contract" and "Best Practices"][pusher] are the same for jostler. Please refer
 to this for best practices of where and how to write files.
 
 [pusher]: https://github.com/m-lab/pusher/blob/main/DESIGN.md#4-pushers-api-contract
+
+### JSON Format for Measurement Data
+
+The jostler only supports JSON result types. For binary or non-JSON formats,
+your measurement service should use [pusher](https://github.com/m-lab/pusher).
+
+The JSON result should be for a single measurement and written to a single file;
+one measurement, one file (per datatype). If your service collects multiple
+datatypes per measurement, save each one in a separate file and datatype
+directory, using the [recommended directory structure][jostler-dirs].
+
+[jostler-dirs]: https://github.com/m-lab/jostler#25-default-paths-and-object-names
+
+The outermost JSON type for your measurement result should be an object, i.e.
+`{...}`. The object should be formatted as a single line (not pretty printed).
+This object may contain any number of named fields or repeated records.
+
+NOTE: the example is pretty printed for clarity, but an actual file should not be.
+
+```json
+{
+    "UUID": "abcdefg-1234567",
+    "Server": "192.168.0.1",
+    "Client": "192.168.0.2",
+    "StartTime": "2023-03-01T01:03:45.034503Z",
+    "Samples": [
+        {"MinRTT": 1.23, "RTT": 3.45, "RTTVar": 2.34},
+        {"MinRTT": 3.21, "RTT": 5.43, "RTTVar": 4.32}
+    ]
+}
+```
+
+While JSON allows mixed type arrays (e.g. `["a", 1, {}]`), BigQuery does not.
+Any array types must use identical repeated element types, defined by the result
+SCHEMA.
+
+Once written to disk, the jostler will read the JSON results and bundle them
+together into larger JSONL files. Once enough data has been read or enough time
+has passed, the JSONL bundle is uploaded to GCS and the local JSON files that
+were part of the bundle are removed.
+
+The content of your measurement data will be wrapped by the jostler ["standard
+columns"][stdcolumns]. Your measurement result will always be within the `raw`
+record.
+
+[stdcolumns]: https://github.com/m-lab/jostler#221-standard-columns
 
 ### JSON Schema for Measurement Data
 
@@ -101,55 +147,9 @@ Example JSON Schema:
 ]
 ```
 
-### JSON Format for Measurement Data
+### Creating Schema Files
 
-The jostler only supports JSON result types. For binary or non-JSON formats,
-your measurement service should use [pusher](https://github.com/m-lab/pusher).
-
-The JSON result should be for a single measurement and written to a single file;
-one measurement, one file (per datatype). If your service collects multiple
-datatypes per measurement, save each one in a separate file and datatype
-directory, using the [recommended directory structure][jostler-dirs].
-
-[jostler-dirs]: https://github.com/m-lab/jostler#25-default-paths-and-object-names
-
-The outermost JSON type for your measurement result should be an object, i.e.
-`{...}`. The object should be formatted as a single line (not pretty printed).
-This object may contain any number of named fields or repeated records.
-
-NOTE: the example is pretty printed for clarity, but an actual file should not be.
-
-```json
-{
-    "UUID": "abcdefg-1234567",
-    "Server": "192.168.0.1",
-    "Client": "192.168.0.2",
-    "StartTime": "2023-03-01T01:03:45.034503Z",
-    "Samples": [
-        {"MinRTT": 1.23, "RTT": 3.45, "RTTVar": 2.34},
-        {"MinRTT": 3.21, "RTT": 5.43, "RTTVar": 4.32}
-    ]
-}
-```
-
-While JSON allows mixed type arrays (e.g. `["a", 1, {}]`), BigQuery does not.
-Any array types must use identical repeated element types, defined by the result
-SCHEMA.
-
-Once written to disk, the jostler will read the JSON results and bundle them
-together into larger JSONL files. Once enough data has been read or enough time
-has passed, the JSONL bundle is uploaded to GCS and the local JSON files that
-were part of the bundle are removed.
-
-The content of your measurement data will be wrapped by the jostler ["standard
-columns"][stdcolumns]. Your measurement result will always be within the `raw`
-record.
-
-[stdcolumns]: https://github.com/m-lab/jostler#221-standard-columns
-
-## Examples
-
-### Using Golang bigquery.InferSchema
+#### Using Golang bigquery.InferSchema
 
 If your service is written with Golang, you can use [`bigquery.InferSchema`][1]
 with a Go structure to produce usable schema file. For example, the NDT server
@@ -181,7 +181,7 @@ ioutil.WriteFile("schema.json", b, 0o644)
 
 [1]: https://pkg.go.dev/cloud.google.com/go/bigquery#InferSchema
 
-### Generating Schema from Sample JSON Object
+#### Generating Schema from Sample JSON Object
 
 The `bq` command included in the `google-cloud-sdk` supports creating tables
 with schemas inferred from a provided JSON object. To use this method, you need
@@ -207,7 +207,7 @@ Manually inspect the resulting schema for errors.
 
 [jq]: https://stedolan.github.io/jq/
 
-### Manually Creating Schema
+#### Manually Creating Schema
 
 Since the schema file is JSON, it can be created manually. However, care must be
 taken to ensure that no new fields are added to the measurement output without
