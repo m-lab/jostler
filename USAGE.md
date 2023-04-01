@@ -184,7 +184,7 @@ ioutil.WriteFile("schema.json", b, 0o644)
 ### Generating Schema from Sample JSON Object
 
 The `bq` command included in the `google-cloud-sdk` supports creating tables
-with schemas inferred from a provided JSON object. to use this method, you need
+with schemas inferred from a provided JSON object. To use this method, you need
 write access to a GCP BigQuery project. You can setup one for yourself with zero
 cost.
 
