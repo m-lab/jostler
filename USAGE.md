@@ -12,11 +12,7 @@ your measurement service. These requirements are easy to satisfy for most
 datatypes. And the time you invest in this format will make your data more
 accessible and useful to you and others.
 
-### Objective
-
-The jostler is designed to operate similarly to the pusher. The pusher ["API
-Contract" and "Best Practices"][pusher] are the same for jostler. Please refer
-to this for best practices of where and how to write files.
+### Overview
 
 Since jostler is optimized for JSON datatypes, measurement services deployed
 with the jostler uploader agent must:
@@ -27,6 +23,10 @@ with the jostler uploader agent must:
 The following two sections define a schema file and discuss the JSON result
 format.
 
+The jostler is designed to operate similarly to the pusher. The pusher ["API
+Contract" and "Best Practices"][pusher] are the same for jostler. Please refer
+to this for best practices of where and how to write files.
+
 [pusher]: https://github.com/m-lab/pusher/blob/main/DESIGN.md#4-pushers-api-contract
 
 ### JSON Schema for Measurement Data
@@ -34,11 +34,11 @@ format.
 A JSON schema is a JSON array that contains nested column definitions. Every
 column definition must include:
 
-* The column's name, e.g. latitude.
-* The column's type, e.g. `FLOAT`, `RECORD`, see all [options for type][tablefieldschema].
+* The column's name, e.g. "latitude".
+* The column's type, e.g. `FLOAT`, `RECORD`, etc. See all [type options][tablefieldschema].
 * The column mode for array types, i.e. `REPEATED`. Do not use `REQUIRED`.
 
-The column definition may contain:
+The column definition may also contain:
 
 * The column description.
 
@@ -55,26 +55,48 @@ Example JSON Schema:
 ```json
 [
     {
-      "description": "Geometry record for server locations",
-      "fields": [
-        {
-          "description": "",
-          "name": "type",
-          "type": "STRING"
-        },
-        {
-          "mode": "REPEATED",
-          "name": "coordinates",
-          "type": "FLOAT"
-        }
-      ],
-      "name": "geometry",
-      "type": "RECORD"
+      "description": "Unique measurement identifier, may be joined with other tables",
+      "name": "UUID",
+      "type": "STRING"
     },
     {
-      "description": "Unique measurement identifier, may be joined with other tables",
-      "name": "id",
+      "description": "Server name or IP for latency measurement",
+      "name": "Server",
       "type": "STRING"
+    },
+    {
+      "description": "Client name or IP for latency measurement",
+      "name": "Client",
+      "type": "STRING"
+    },
+    {
+      "description": "Measurement start time",
+      "name": "StartTime",
+      "type": "TIMESTAMP"
+    },
+    {
+      "description": "Latencies observed during measurement, sourced from TCPINFO",
+      "fields": [
+        {
+          "description": "Current RTT of connection",
+          "name": "RTT",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Current RTT variance of connection",
+          "name": "RTTVar",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Minimum RTT over the life of connection",
+          "name": "MinRTT",
+          "type": "FLOAT"
+        }
+
+      ],
+      "mode": "REPEATED",
+      "name": "Samples",
+      "type": "RECORD"
     }
 ]
 ```
@@ -99,11 +121,14 @@ NOTE: the example is pretty printed for clarity, but an actual file should not b
 
 ```json
 {
-    "id": "1234567",
-    "geometry": {
-        "type": "server",
-        "coordinates": [1.23, 3.45]
-    }
+    "UUID": "abcdefg-1234567",
+    "Server": "192.168.0.1",
+    "Client": "192.168.0.2",
+    "StartTime": "2023-03-01T01:03:45.034503Z",
+    "Samples": [
+        {"MinRTT": 1.23, "RTT": 3.45, "RTTVar": 2.34},
+        {"MinRTT": 3.21, "RTT": 5.43, "RTTVar": 4.32}
+    ]
 }
 ```
 
@@ -131,13 +156,27 @@ with a Go structure to produce usable schema file. For example, the NDT server
 includes this logic to produce a JSON schema from the ndt7 structure.
 
 ```go
-// Generate and save ndt7 schema for autoloading.
-row7 := data.NDT7Result{}
-sch, err := bigquery.InferSchema(row7)
-rtx.Must(err, "failed to generate ndt7 schema")
+type Sample struct {
+    MinRTT float64
+    RTT    float64
+    RTTVar float64
+}
+
+type Measurement struct {
+    UUID      string
+    Server    string
+    Client    string
+    StartTime time.Time
+    Samples   []Sample
+}
+
+// Generate and save schema for autoloading.
+row := Measurement{}
+sch, err := bigquery.InferSchema(row)
+rtx.Must(err, "failed to generate measurement schema")
 b, err := sch.ToJSONFields()
 rtx.Must(err, "failed to marshal schema")
-ioutil.WriteFile(ndt7schema, b, 0o644)
+ioutil.WriteFile("schema.json", b, 0o644)
 ```
 
 [1]: https://pkg.go.dev/cloud.google.com/go/bigquery#InferSchema
@@ -159,9 +198,12 @@ uploader agent.
 OS package managers.
 
 ```sh
-bq load --autodetect --source_format NEWLINE_DELIMITED_JSON mlab-sandbox:foo.bar1 ./bar1-sample.json
+bq load --autodetect --source_format NEWLINE_DELIMITED_JSON \
+    mlab-sandbox:foo.bar1 ./bar1-sample.json
 bq show --format prettyjson mlab-sandbox:foo.bar1 | jq .schema.fields
 ```
+
+Manually inspect the resulting schema for errors.
 
 [jq]: https://stedolan.github.io/jq/
 
