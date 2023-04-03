@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"cloud.google.com/go/civil"
+
 	"github.com/m-lab/go/timex"
 	"github.com/m-lab/jostler/api"
 )
@@ -109,8 +111,12 @@ func (jb *JSONLBundle) AddFile(fullPath, version, gitCommit string) error {
 		jb.BadFiles = append(jb.BadFiles, fullPath)
 		return err
 	}
+	d, err := civil.ParseDate(strings.ReplaceAll(jb.DateSubdir, "/", "-"))
+	if err != nil {
+		return fmt.Errorf("failed to convert %q to civil.Date: %w", jb.DateSubdir, err)
+	}
 	stdCols := api.StandardColumnsV0{
-		Date: strings.ReplaceAll(jb.DateSubdir, "/", "-"),
+		Date: d,
 		Archiver: api.ArchiverV0{
 			Version:    version,
 			GitCommit:  gitCommit,
