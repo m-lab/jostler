@@ -220,7 +220,7 @@ func (ub *UploadBundle) bundleFile(ctx context.Context, fullPath string) {
 // /cache/data/<experiment>/<datatype>/<yyyy>/<mm>/<dd>/<filename>
 // and is a regular file.  Then it makes sure it's not too big.
 // If all is OK, it returns the date component of the file's pathname
-// ("yyyy/mm/dd") and the file size.
+// ("yyyy/mm/dd") as a civil.Date with the file size.
 func (ub *UploadBundle) fileDetails(fullPath string) (civil.Date, int64, error) {
 	cleanFilePath := filepath.Clean(fullPath)
 	dataDir := ub.bundleConf.SpoolDir
