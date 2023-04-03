@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"cloud.google.com/go/civil"
+
 	"github.com/m-lab/go/timex"
 	"github.com/m-lab/jostler/api"
 )
@@ -24,7 +26,7 @@ type JSONLBundle struct {
 	Index      []api.IndexV1 // pathnames of data files in the index
 	Timestamp  string        // bundle's in-memory creation time that serves as its identifier
 	Datatype   string        // bundle's datatype
-	DateSubdir string        // date subdirectory of files in this bundle (yyyy/mm/dd)
+	Date       civil.Date    // date subdirectory of files in this bundle (yyyy/mm/dd)
 	bucket     string        // GCS bucket
 	BundleDir  string        // GCS directory to upload this bundle to
 	BundleName string        // GCS object name of this bundle
@@ -61,7 +63,7 @@ func Verbose(v func(string, ...interface{})) {
 //	|--------GCSConfig.DataDir--------|                                   |------GCSConfig.BaseID------|
 //	autoload/v1/<experiment>/index1/<yyyy>/<mm>/<dd>/<timestamp>-<datatype>-<node>-<experiment>-index1.jsonl
 //	|------GCSConfig.IndexDir-----|                                   |------GCSConfig.BaseID------|
-func New(bucket, gcsDataDir, gcsIndexDir, gcsBaseID, datatype, dateSubdir string) *JSONLBundle {
+func New(bucket, gcsDataDir, gcsIndexDir, gcsBaseID, datatype string, date civil.Date) *JSONLBundle {
 	nowUTC := time.Now().UTC()
 	return &JSONLBundle{
 		Lines:      []string{},
@@ -69,7 +71,7 @@ func New(bucket, gcsDataDir, gcsIndexDir, gcsBaseID, datatype, dateSubdir string
 		Index:      []api.IndexV1{},
 		Timestamp:  nowUTC.Format("2006/01/02T150405.000000Z"),
 		Datatype:   datatype,
-		DateSubdir: dateSubdir,
+		Date:       date,
 		BundleDir:  dirName(gcsDataDir, nowUTC),
 		BundleName: objectName(nowUTC, gcsBaseID, "data"),
 		IndexDir:   dirName(gcsIndexDir, nowUTC),
@@ -81,7 +83,7 @@ func New(bucket, gcsDataDir, gcsIndexDir, gcsBaseID, datatype, dateSubdir string
 
 // Description returns a string describing the bundle for log messages.
 func (jb *JSONLBundle) Description() string {
-	return fmt.Sprintf("bundle <%v %v %v>", jb.Timestamp, jb.Datatype, jb.DateSubdir)
+	return fmt.Sprintf("bundle <%v %v %v>", jb.Timestamp, jb.Datatype, jb.Date)
 }
 
 // HasFile returns true or false depending on whether the bundle includes
@@ -110,7 +112,7 @@ func (jb *JSONLBundle) AddFile(fullPath, version, gitCommit string) error {
 		return err
 	}
 	stdCols := api.StandardColumnsV0{
-		Date: strings.ReplaceAll(jb.DateSubdir, "/", "-"),
+		Date: jb.Date,
 		Archiver: api.ArchiverV0{
 			Version:    version,
 			GitCommit:  gitCommit,

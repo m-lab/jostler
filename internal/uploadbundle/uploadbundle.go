@@ -34,6 +34,7 @@ import (
 	"strings"
 	"time"
 
+	"cloud.google.com/go/civil"
 	"github.com/m-lab/jostler/internal/jsonlbundle"
 	"github.com/m-lab/jostler/internal/watchdir"
 	"github.com/prometheus/client_golang/prometheus"
@@ -50,12 +51,12 @@ type DirWatcher interface {
 // UploadBundle defines configuration options and other fields that are
 // common to all instances of JSONL bundles (see jsonlBundle).
 type UploadBundle struct {
-	wdClient      DirWatcher                          // directory watcher that notifies us
-	gcsConf       GCSConfig                           // GCS configuration
-	bundleConf    BundleConfig                        // bundle configuration
-	ageChan       chan *jsonlbundle.JSONLBundle       // notification channel for when bundle reaches maximum age
-	activeBundles map[string]*jsonlbundle.JSONLBundle // bundles that are active
-	uploadBundles map[string]struct{}                 // bundles that are being uploaded or were uploaded
+	wdClient      DirWatcher                              // directory watcher that notifies us
+	gcsConf       GCSConfig                               // GCS configuration
+	bundleConf    BundleConfig                            // bundle configuration
+	ageChan       chan *jsonlbundle.JSONLBundle           // notification channel for when bundle reaches maximum age
+	activeBundles map[civil.Date]*jsonlbundle.JSONLBundle // bundles that are active
+	uploadBundles map[string]struct{}                     // bundles that are being uploaded or were uploaded
 }
 
 // Uploader interface.
@@ -96,6 +97,7 @@ var (
 	ErrNotRegular   = errors.New("is not a regular file")
 	ErrEmpty        = errors.New("is empty")
 	ErrTooBig       = errors.New("is too big to fit in a bundle")
+	ErrDateParse    = errors.New("date unparseable")
 )
 
 var (
@@ -134,7 +136,7 @@ func New(ctx context.Context, wdClient DirWatcher, gcsConf GCSConfig, bundleConf
 		gcsConf:       gcsConf,
 		bundleConf:    bundleConf,
 		ageChan:       make(chan *jsonlbundle.JSONLBundle),
-		activeBundles: make(map[string]*jsonlbundle.JSONLBundle, weekDays),
+		activeBundles: make(map[civil.Date]*jsonlbundle.JSONLBundle, weekDays),
 		uploadBundles: make(map[string]struct{}, numUploads),
 	}
 	ub.bundleConf.SpoolDir = filepath.Clean(ub.bundleConf.SpoolDir)
@@ -180,7 +182,7 @@ func (ub *UploadBundle) BundleAndUpload(ctx context.Context) error {
 func (ub *UploadBundle) bundleFile(ctx context.Context, fullPath string) {
 	// Validate the file's pathname and get its date subdirectory
 	// and size.
-	dateSubdir, fileSize, err := ub.fileDetails(fullPath)
+	date, fileSize, err := ub.fileDetails(fullPath)
 	if err != nil {
 		verbose("WARNING: ignoring %v: %v", fullPath, err)
 		return
@@ -188,7 +190,7 @@ func (ub *UploadBundle) bundleFile(ctx context.Context, fullPath string) {
 	verbose("%v %v bytes", fullPath, fileSize)
 
 	// Is there an active bundle that this file belongs to?
-	jb := ub.activeBundles[dateSubdir]
+	jb := ub.activeBundles[date]
 	if jb != nil {
 		// Sanity check.
 		if jb.HasFile(fullPath) {
@@ -204,7 +206,7 @@ func (ub *UploadBundle) bundleFile(ctx context.Context, fullPath string) {
 		}
 	}
 	if jb == nil {
-		jb = ub.newJSONLBundle(dateSubdir)
+		jb = ub.newJSONLBundle(date)
 	}
 	// Add the contents of this file to the bundle.
 	if err := jb.AddFile(fullPath, ub.bundleConf.Version, ub.bundleConf.GitCommit); err != nil {
@@ -218,60 +220,64 @@ func (ub *UploadBundle) bundleFile(ctx context.Context, fullPath string) {
 // /cache/data/<experiment>/<datatype>/<yyyy>/<mm>/<dd>/<filename>
 // and is a regular file.  Then it makes sure it's not too big.
 // If all is OK, it returns the date component of the file's pathname
-// ("yyyy/mm/dd") and the file size.
-func (ub *UploadBundle) fileDetails(fullPath string) (string, int64, error) {
+// ("yyyy/mm/dd") as a civil.Date with the file size.
+func (ub *UploadBundle) fileDetails(fullPath string) (civil.Date, int64, error) {
 	cleanFilePath := filepath.Clean(fullPath)
 	dataDir := ub.bundleConf.SpoolDir
 	if !strings.HasPrefix(cleanFilePath, dataDir) {
-		return "", 0, fmt.Errorf("%v: %w", cleanFilePath, ErrNotInDataDir)
+		return civil.Date{}, 0, fmt.Errorf("%v: %w", cleanFilePath, ErrNotInDataDir)
 	}
 	if len(cleanFilePath) <= len(dataDir) {
-		return "", 0, fmt.Errorf("%v: %w", cleanFilePath, ErrTooShort)
+		return civil.Date{}, 0, fmt.Errorf("%v: %w", cleanFilePath, ErrTooShort)
 	}
 	pathName := regexp.MustCompile(`[^a-zA-Z0-9/:._-]`)
 	if pathName.MatchString(cleanFilePath) {
-		return "", 0, fmt.Errorf("%v: %w", cleanFilePath, ErrInvalidChars)
+		return civil.Date{}, 0, fmt.Errorf("%v: %w", cleanFilePath, ErrInvalidChars)
 	}
 	if strings.Contains(cleanFilePath, "..") {
-		return "", 0, fmt.Errorf("%v: %w", cleanFilePath, ErrDotDot)
+		return civil.Date{}, 0, fmt.Errorf("%v: %w", cleanFilePath, ErrDotDot)
 	}
 	dateSubdir, filename := filepath.Split(cleanFilePath[len(dataDir):])
 	yyyymmdd := regexp.MustCompile(`/20[0-9][0-9]/[0-9]{2}/[0-9]{2}/`)
 	if len(dateSubdir) != 12 || !yyyymmdd.MatchString(dateSubdir) {
-		return "", 0, fmt.Errorf("%v: %w", cleanFilePath, ErrDateDir)
+		return civil.Date{}, 0, fmt.Errorf("%v: %w", cleanFilePath, ErrDateDir)
 	}
 	if strings.HasPrefix(filename, ".") {
-		return "", 0, fmt.Errorf("%v: %w", filename, ErrDotFile)
+		return civil.Date{}, 0, fmt.Errorf("%v: %w", filename, ErrDotFile)
 	}
 	fi, err := os.Stat(fullPath)
 	if err != nil {
-		return "", 0, fmt.Errorf("failed to stat: %w", err)
+		return civil.Date{}, 0, fmt.Errorf("failed to stat: %w", err)
 	}
 	if !fi.Mode().IsRegular() {
-		return "", 0, fmt.Errorf("%v: %w", filename, ErrNotRegular)
+		return civil.Date{}, 0, fmt.Errorf("%v: %w", filename, ErrNotRegular)
 	}
 	if uint(fi.Size()) == 0 {
-		return "", 0, fmt.Errorf("%v: %w", filename, ErrEmpty)
+		return civil.Date{}, 0, fmt.Errorf("%v: %w", filename, ErrEmpty)
 	}
 	if uint(fi.Size()) > ub.bundleConf.SizeMax {
-		return "", 0, fmt.Errorf("%v: %w", filename, ErrTooBig)
+		return civil.Date{}, 0, fmt.Errorf("%v: %w", filename, ErrTooBig)
 	}
-	return dateSubdir[1:11], fi.Size(), nil
+	date, err := civil.ParseDate(strings.ReplaceAll(dateSubdir[1:11], "/", "-"))
+	if err != nil {
+		return civil.Date{}, 0, fmt.Errorf("%v: %w", filename, ErrDateParse)
+	}
+	return date, fi.Size(), nil
 }
 
 // newJSONLBundle creates and returns a new active bundle instance.
-func (ub *UploadBundle) newJSONLBundle(dateSubdir string) *jsonlbundle.JSONLBundle {
+func (ub *UploadBundle) newJSONLBundle(date civil.Date) *jsonlbundle.JSONLBundle {
 	// Sanity check: make sure we don't already have a bundle for
 	// the given date.
-	if jb, ok := ub.activeBundles[dateSubdir]; ok {
-		if dateSubdir == jb.DateSubdir {
+	if jb, ok := ub.activeBundles[date]; ok {
+		if date == jb.Date {
 			log.Printf("INTERNAL ERROR: an active %v already exists", jb.Description())
 		}
-		log.Printf("INTERNAL ERROR: key %v returned active %v", dateSubdir, jb.Description())
+		log.Printf("INTERNAL ERROR: key %s returned active %v", date, jb.Description())
 	}
 
-	jb := jsonlbundle.New(ub.gcsConf.Bucket, ub.gcsConf.DataDir, ub.gcsConf.IndexDir, ub.gcsConf.BaseID, ub.bundleConf.Datatype, dateSubdir)
-	ub.activeBundles[dateSubdir] = jb
+	jb := jsonlbundle.New(ub.gcsConf.Bucket, ub.gcsConf.DataDir, ub.gcsConf.IndexDir, ub.gcsConf.BaseID, ub.bundleConf.Datatype, date)
+	ub.activeBundles[date] = jb
 	verbose("created active %v", jb.Description())
 	time.AfterFunc(ub.bundleConf.AgeMax, func() {
 		ub.ageChan <- jb
@@ -298,7 +304,7 @@ func (ub *UploadBundle) uploadAgedBundle(ctx context.Context, jb *jsonlbundle.JS
 // the uploads process to GCS in the background.
 func (ub *UploadBundle) uploadBundle(ctx context.Context, jb *jsonlbundle.JSONLBundle) {
 	// Sanity check.
-	if _, ok := ub.activeBundles[jb.DateSubdir]; !ok {
+	if _, ok := ub.activeBundles[jb.Date]; !ok {
 		log.Printf("INTERNAL ERROR: %v not in active bundles map", jb.Description())
 	}
 	if len(jb.Lines) != len(jb.Index)+len(jb.BadFiles) {
@@ -308,7 +314,7 @@ func (ub *UploadBundle) uploadBundle(ctx context.Context, jb *jsonlbundle.JSONLB
 	// Add the bundle to upload bundles map.
 	ub.uploadBundles[jb.Timestamp] = struct{}{}
 	// Delete the bundle from active bundles map.
-	delete(ub.activeBundles, jb.DateSubdir)
+	delete(ub.activeBundles, jb.Date)
 
 	// Start the upload process in the background and acknowledge
 	// the files of this bundle with the directory watcher.

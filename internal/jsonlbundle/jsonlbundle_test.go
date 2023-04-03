@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"cloud.google.com/go/civil"
+
 	"github.com/m-lab/jostler/api"
 	"github.com/m-lab/jostler/internal/testhelper"
 )
@@ -24,7 +26,7 @@ func TestNew(t *testing.T) {
 		gcsIndexDir string
 		gcsBaseID   string
 		datatype    string
-		dateSubdir  string
+		date        civil.Date
 	}{
 		{
 			gcsBucket:   "some-bucket",
@@ -32,18 +34,18 @@ func TestNew(t *testing.T) {
 			gcsIndexDir: "some/path/in/gcs",
 			gcsBaseID:   "some-string",
 			datatype:    "some-datatype",
-			dateSubdir:  "2022/11/14",
+			date:        civil.Date{Year: 2022, Month: time.November, Day: 14},
 		},
 	}
 	for i, test := range tests {
 		test := test
 		t.Logf("%s>>> test %02d%s", testhelper.ANSIPurple, i, testhelper.ANSIEnd)
-		gotjb := New(test.gcsBucket, test.gcsDataDir, test.gcsIndexDir, test.gcsBaseID, test.datatype, test.dateSubdir)
+		gotjb := New(test.gcsBucket, test.gcsDataDir, test.gcsIndexDir, test.gcsBaseID, test.datatype, test.date)
 		timestamp, err := time.Parse("2006/01/02T150405.000000Z", gotjb.Timestamp)
 		if err != nil {
 			t.Fatalf("time.Parse() = %v", err)
 		}
-		wantjb := newJb(test.gcsBucket, test.gcsDataDir, test.gcsIndexDir, test.gcsBaseID, test.datatype, test.dateSubdir, timestamp)
+		wantjb := newJb(test.gcsBucket, test.gcsDataDir, test.gcsIndexDir, test.gcsBaseID, test.datatype, test.date, timestamp)
 		if !reflect.DeepEqual(gotjb, wantjb) {
 			t.Fatalf("New() = %+v, want %+v", gotjb, wantjb)
 		}
@@ -54,7 +56,7 @@ func TestDescription(t *testing.T) {
 	t.Parallel()
 	nowUTC := time.Now().UTC()
 	jb := newTestJb(nowUTC)
-	wantDescription := fmt.Sprintf("bundle <%v %v %v>", nowUTC.Format("2006/01/02T150405.000000Z"), jb.Datatype, jb.DateSubdir)
+	wantDescription := fmt.Sprintf("bundle <%v %v %v>", nowUTC.Format("2006/01/02T150405.000000Z"), jb.Datatype, jb.Date)
 	if jb.Description() != wantDescription {
 		t.Fatalf("jb.Description() = %v, want %v", jb.Description(), wantDescription)
 	}
@@ -171,18 +173,18 @@ func newTestJb(timestamp time.Time) *JSONLBundle {
 	gcsIndexDir := "some/path/in/gcs"
 	gcsBaseID := "some-string"
 	datatype := "some-datatype"
-	dateSubdir := "2022/11/14"
-	return newJb(gcsBucket, gcsDataDir, gcsIndexDir, gcsBaseID, datatype, dateSubdir, timestamp)
+	date := civil.Date{Year: 2022, Month: time.November, Day: 14}
+	return newJb(gcsBucket, gcsDataDir, gcsIndexDir, gcsBaseID, datatype, date, timestamp)
 }
 
-func newJb(bucket, gcsDataDir, gcsIndexDir, gcsBaseID, datatype, dateSubdir string, timestamp time.Time) *JSONLBundle {
+func newJb(bucket, gcsDataDir, gcsIndexDir, gcsBaseID, datatype string, date civil.Date, timestamp time.Time) *JSONLBundle {
 	return &JSONLBundle{
 		Lines:      []string{},
 		BadFiles:   []string{},
 		Index:      []api.IndexV1{},
 		Timestamp:  timestamp.Format("2006/01/02T150405.000000Z"),
 		Datatype:   datatype,
-		DateSubdir: dateSubdir,
+		Date:       date,
 		BundleDir:  dirName(gcsDataDir, timestamp),
 		BundleName: objectName(timestamp, gcsBaseID, "data"),
 		IndexDir:   dirName(gcsIndexDir, timestamp),
