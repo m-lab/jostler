@@ -63,20 +63,15 @@ func Verbose(v func(string, ...interface{})) {
 //	|--------GCSConfig.DataDir--------|                                   |------GCSConfig.BaseID------|
 //	autoload/v1/<experiment>/index1/<yyyy>/<mm>/<dd>/<timestamp>-<datatype>-<node>-<experiment>-index1.jsonl
 //	|------GCSConfig.IndexDir-----|                                   |------GCSConfig.BaseID------|
-func New(bucket, gcsDataDir, gcsIndexDir, gcsBaseID, datatype, dateSubdir string) *JSONLBundle {
+func New(bucket, gcsDataDir, gcsIndexDir, gcsBaseID, datatype string, date civil.Date) *JSONLBundle {
 	nowUTC := time.Now().UTC()
-	d, err := civil.ParseDate(strings.ReplaceAll(dateSubdir, "/", "-"))
-	if err != nil {
-		log.Println("failed to parse civl.Date from:", dateSubdir, err)
-		return nil
-	}
 	return &JSONLBundle{
 		Lines:      []string{},
 		BadFiles:   []string{},
 		Index:      []api.IndexV1{},
 		Timestamp:  nowUTC.Format("2006/01/02T150405.000000Z"),
 		Datatype:   datatype,
-		Date:       d,
+		Date:       date,
 		BundleDir:  dirName(gcsDataDir, nowUTC),
 		BundleName: objectName(nowUTC, gcsBaseID, "data"),
 		IndexDir:   dirName(gcsIndexDir, nowUTC),
