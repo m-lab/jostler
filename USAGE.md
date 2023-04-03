@@ -2,8 +2,8 @@
 
 ## Introduction
 
-The jostler was designed to accelerate the process of getting new measurement
-data into BigQuery.
+The [jostler and autoloader system][autoloader] was designed to accelerate the
+process of getting new measurement data into BigQuery.
 
 * measurement service -> JSON -> jostler -> JSONL -> autoloader -> BigQuery
 
@@ -11,6 +11,8 @@ An accelerated publication process places requirements on the output format of
 your measurement service. These requirements are easy to satisfy for most
 datatypes. And the time you invest in this format will make your data more
 accessible and useful to you and others.
+
+[autoloader]: https://docs.google.com/document/d/1kJ2oy5MAwYBBCq2mVOoJBjq4zU2xiEy1gRAYNoim920/edit
 
 ### Overview
 
@@ -23,11 +25,14 @@ with the jostler uploader agent must:
 The following two sections discuss the JSON result format and define a schema
 file for a sample result type.
 
-The jostler is designed to operate similarly to the pusher. The pusher ["API
-Contract" and "Best Practices"][pusher] are the same for jostler. Please refer
-to this for best practices of where and how to write files.
+[All requirements][autoloader-requirements] of the measurement service are
+described in the design doc. The jostler is designed to operate similarly to
+the pusher. The pusher ["API Contract" and "Best Practices"][pusher] are the
+same for jostler. Please refer to these for best practices of where and how to
+write files.
 
 [pusher]: https://github.com/m-lab/pusher/blob/main/DESIGN.md#4-pushers-api-contract
+[autoloader-requirements]: https://docs.google.com/document/d/1kJ2oy5MAwYBBCq2mVOoJBjq4zU2xiEy1gRAYNoim920/edit#heading=h.3rjulj7wrkjs
 
 ### JSON Format for Measurement Data
 
@@ -45,7 +50,7 @@ The outermost JSON type for your measurement result should be an object, i.e.
 `{...}`. The object should be formatted as a single line (not pretty printed).
 This object may contain any number of named fields or repeated records.
 
-NOTE: the example is pretty printed for clarity, but an actual file should not be.
+NOTE: the example is pretty printed for clarity; an actual file *MUST NOT* be.
 
 ```json
 {
@@ -77,7 +82,7 @@ record.
 
 ### JSON Schema for Measurement Data
 
-A JSON schema is a JSON array that contains nested column definitions. Every
+A [JSON schema is a JSON array][schemadoc] that contains nested column definitions. Every
 column definition must include:
 
 * The column's name, e.g. "latitude".
@@ -94,6 +99,7 @@ encouraged.
 
 Other column options are [not currently supported.][tablefieldschema]
 
+[schemadoc]: https://cloud.google.com/bigquery/docs/schemas#specifying_a_json_schema_file
 [tablefieldschema]: https://cloud.google.com/bigquery/docs/reference/rest/v2/tables#TableFieldSchema
 
 Example JSON Schema:
