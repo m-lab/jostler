@@ -35,6 +35,12 @@ type JSONLBundle struct {
 	Size       uint          // size of this bundle
 }
 
+// Time represents the time structure needed to create the JSONLBundles.
+type Time struct {
+	Time time.Time
+	Date civil.Date
+}
+
 // Exported errors.
 var (
 	ErrReadFile       = errors.New("failed to read file")
@@ -63,19 +69,18 @@ func Verbose(v func(string, ...interface{})) {
 //	|--------GCSConfig.DataDir--------|                                   |------GCSConfig.BaseID------|
 //	autoload/v1/<experiment>/index1/<yyyy>/<mm>/<dd>/<timestamp>-<datatype>-<node>-<experiment>-index1.jsonl
 //	|------GCSConfig.IndexDir-----|                                   |------GCSConfig.BaseID------|
-func New(bucket, gcsDataDir, gcsIndexDir, gcsBaseID, datatype string, date civil.Date) *JSONLBundle {
-	nowUTC := time.Now().UTC()
+func New(bucket, gcsDataDir, gcsIndexDir, gcsBaseID, datatype string, t *Time) *JSONLBundle {
 	return &JSONLBundle{
 		Lines:      []string{},
 		BadFiles:   []string{},
 		Index:      []api.IndexV1{},
-		Timestamp:  nowUTC.Format("2006/01/02T150405.000000Z"),
+		Timestamp:  t.Time.Format("2006/01/02T150405.000000Z"),
 		Datatype:   datatype,
-		Date:       date,
-		BundleDir:  dirName(gcsDataDir, nowUTC),
-		BundleName: objectName(nowUTC, gcsBaseID, "data"),
-		IndexDir:   dirName(gcsIndexDir, nowUTC),
-		IndexName:  objectName(nowUTC, gcsBaseID, "index1"),
+		Date:       t.Date,
+		BundleDir:  dirName(gcsDataDir, t.Time),
+		BundleName: objectName(t.Time, gcsBaseID, "data"),
+		IndexDir:   dirName(gcsIndexDir, t.Time),
+		IndexName:  objectName(t.Time, gcsBaseID, "index1"),
 		Size:       0,
 		bucket:     bucket,
 	}

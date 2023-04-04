@@ -26,7 +26,7 @@ func TestNew(t *testing.T) {
 		gcsIndexDir string
 		gcsBaseID   string
 		datatype    string
-		date        civil.Date
+		time        *Time
 	}{
 		{
 			gcsBucket:   "some-bucket",
@@ -34,18 +34,20 @@ func TestNew(t *testing.T) {
 			gcsIndexDir: "some/path/in/gcs",
 			gcsBaseID:   "some-string",
 			datatype:    "some-datatype",
-			date:        civil.Date{Year: 2022, Month: time.November, Day: 14},
+			time: &Time{
+				Time: time.Date(2022, time.November, 14, 5, 3, 4, 0, time.UTC),
+				Date: civil.Date{Year: 2022, Month: time.November, Day: 14}},
 		},
 	}
 	for i, test := range tests {
 		test := test
 		t.Logf("%s>>> test %02d%s", testhelper.ANSIPurple, i, testhelper.ANSIEnd)
-		gotjb := New(test.gcsBucket, test.gcsDataDir, test.gcsIndexDir, test.gcsBaseID, test.datatype, test.date)
+		gotjb := New(test.gcsBucket, test.gcsDataDir, test.gcsIndexDir, test.gcsBaseID, test.datatype, test.time)
 		timestamp, err := time.Parse("2006/01/02T150405.000000Z", gotjb.Timestamp)
 		if err != nil {
 			t.Fatalf("time.Parse() = %v", err)
 		}
-		wantjb := newJb(test.gcsBucket, test.gcsDataDir, test.gcsIndexDir, test.gcsBaseID, test.datatype, test.date, timestamp)
+		wantjb := newJb(test.gcsBucket, test.gcsDataDir, test.gcsIndexDir, test.gcsBaseID, test.datatype, test.time.Date, timestamp)
 		if !reflect.DeepEqual(gotjb, wantjb) {
 			t.Fatalf("New() = %+v, want %+v", gotjb, wantjb)
 		}

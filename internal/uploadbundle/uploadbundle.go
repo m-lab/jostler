@@ -182,7 +182,7 @@ func (ub *UploadBundle) BundleAndUpload(ctx context.Context) error {
 func (ub *UploadBundle) bundleFile(ctx context.Context, fullPath string) {
 	// Validate the file's pathname and get its date subdirectory
 	// and size.
-	date, fileSize, err := ub.fileDetails(fullPath)
+	t, fileSize, err := ub.fileDetails(fullPath)
 	if err != nil {
 		verbose("WARNING: ignoring %v: %v", fullPath, err)
 		return
@@ -190,7 +190,7 @@ func (ub *UploadBundle) bundleFile(ctx context.Context, fullPath string) {
 	verbose("%v %v bytes", fullPath, fileSize)
 
 	// Is there an active bundle that this file belongs to?
-	jb := ub.activeBundles[date]
+	jb := ub.activeBundles[t.Date]
 	if jb != nil {
 		// Sanity check.
 		if jb.HasFile(fullPath) {
@@ -206,7 +206,7 @@ func (ub *UploadBundle) bundleFile(ctx context.Context, fullPath string) {
 		}
 	}
 	if jb == nil {
-		jb = ub.newJSONLBundle(date)
+		jb = ub.newJSONLBundle(t)
 	}
 	// Add the contents of this file to the bundle.
 	if err := jb.AddFile(fullPath, ub.bundleConf.Version, ub.bundleConf.GitCommit); err != nil {
@@ -221,63 +221,67 @@ func (ub *UploadBundle) bundleFile(ctx context.Context, fullPath string) {
 // and is a regular file.  Then it makes sure it's not too big.
 // If all is OK, it returns the date component of the file's pathname
 // ("yyyy/mm/dd") as a civil.Date with the file size.
-func (ub *UploadBundle) fileDetails(fullPath string) (civil.Date, int64, error) {
+func (ub *UploadBundle) fileDetails(fullPath string) (*jsonlbundle.Time, int64, error) {
 	cleanFilePath := filepath.Clean(fullPath)
 	dataDir := ub.bundleConf.SpoolDir
 	if !strings.HasPrefix(cleanFilePath, dataDir) {
-		return civil.Date{}, 0, fmt.Errorf("%v: %w", cleanFilePath, ErrNotInDataDir)
+		return nil, 0, fmt.Errorf("%v: %w", cleanFilePath, ErrNotInDataDir)
 	}
 	if len(cleanFilePath) <= len(dataDir) {
-		return civil.Date{}, 0, fmt.Errorf("%v: %w", cleanFilePath, ErrTooShort)
+		return nil, 0, fmt.Errorf("%v: %w", cleanFilePath, ErrTooShort)
 	}
 	pathName := regexp.MustCompile(`[^a-zA-Z0-9/:._-]`)
 	if pathName.MatchString(cleanFilePath) {
-		return civil.Date{}, 0, fmt.Errorf("%v: %w", cleanFilePath, ErrInvalidChars)
+		return nil, 0, fmt.Errorf("%v: %w", cleanFilePath, ErrInvalidChars)
 	}
 	if strings.Contains(cleanFilePath, "..") {
-		return civil.Date{}, 0, fmt.Errorf("%v: %w", cleanFilePath, ErrDotDot)
+		return nil, 0, fmt.Errorf("%v: %w", cleanFilePath, ErrDotDot)
 	}
 	dateSubdir, filename := filepath.Split(cleanFilePath[len(dataDir):])
 	yyyymmdd := regexp.MustCompile(`/20[0-9][0-9]/[0-9]{2}/[0-9]{2}/`)
 	if len(dateSubdir) != 12 || !yyyymmdd.MatchString(dateSubdir) {
-		return civil.Date{}, 0, fmt.Errorf("%v: %w", cleanFilePath, ErrDateDir)
+		return nil, 0, fmt.Errorf("%v: %w", cleanFilePath, ErrDateDir)
 	}
 	if strings.HasPrefix(filename, ".") {
-		return civil.Date{}, 0, fmt.Errorf("%v: %w", filename, ErrDotFile)
+		return nil, 0, fmt.Errorf("%v: %w", filename, ErrDotFile)
 	}
 	fi, err := os.Stat(fullPath)
 	if err != nil {
-		return civil.Date{}, 0, fmt.Errorf("failed to stat: %w", err)
+		return nil, 0, fmt.Errorf("failed to stat: %w", err)
 	}
 	if !fi.Mode().IsRegular() {
-		return civil.Date{}, 0, fmt.Errorf("%v: %w", filename, ErrNotRegular)
+		return nil, 0, fmt.Errorf("%v: %w", filename, ErrNotRegular)
 	}
 	if uint(fi.Size()) == 0 {
-		return civil.Date{}, 0, fmt.Errorf("%v: %w", filename, ErrEmpty)
+		return nil, 0, fmt.Errorf("%v: %w", filename, ErrEmpty)
 	}
 	if uint(fi.Size()) > ub.bundleConf.SizeMax {
-		return civil.Date{}, 0, fmt.Errorf("%v: %w", filename, ErrTooBig)
+		return nil, 0, fmt.Errorf("%v: %w", filename, ErrTooBig)
 	}
 	date, err := civil.ParseDate(strings.ReplaceAll(dateSubdir[1:11], "/", "-"))
 	if err != nil {
-		return civil.Date{}, 0, fmt.Errorf("%v: %w", filename, ErrDateParse)
+		return nil, 0, fmt.Errorf("%v: %w", filename, ErrDateParse)
 	}
-	return date, fi.Size(), nil
+	timestamp, err := time.Parse("20060102T150405.000000Z", filename)
+	if err != nil {
+		return nil, 0, err
+	}
+	return &jsonlbundle.Time{Date: date, Time: timestamp}, fi.Size(), nil
 }
 
 // newJSONLBundle creates and returns a new active bundle instance.
-func (ub *UploadBundle) newJSONLBundle(date civil.Date) *jsonlbundle.JSONLBundle {
+func (ub *UploadBundle) newJSONLBundle(t *jsonlbundle.Time) *jsonlbundle.JSONLBundle {
 	// Sanity check: make sure we don't already have a bundle for
 	// the given date.
-	if jb, ok := ub.activeBundles[date]; ok {
-		if date == jb.Date {
+	if jb, ok := ub.activeBundles[t.Date]; ok {
+		if t.Date == jb.Date {
 			log.Printf("INTERNAL ERROR: an active %v already exists", jb.Description())
 		}
-		log.Printf("INTERNAL ERROR: key %s returned active %v", date, jb.Description())
+		log.Printf("INTERNAL ERROR: key %s returned active %v", t.Date, jb.Description())
 	}
 
-	jb := jsonlbundle.New(ub.gcsConf.Bucket, ub.gcsConf.DataDir, ub.gcsConf.IndexDir, ub.gcsConf.BaseID, ub.bundleConf.Datatype, date)
-	ub.activeBundles[date] = jb
+	jb := jsonlbundle.New(ub.gcsConf.Bucket, ub.gcsConf.DataDir, ub.gcsConf.IndexDir, ub.gcsConf.BaseID, ub.bundleConf.Datatype, t)
+	ub.activeBundles[t.Date] = jb
 	verbose("created active %v", jb.Description())
 	time.AfterFunc(ub.bundleConf.AgeMax, func() {
 		ub.ageChan <- jb
