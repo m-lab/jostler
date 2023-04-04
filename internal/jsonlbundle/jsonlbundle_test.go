@@ -41,7 +41,7 @@ func TestNew(t *testing.T) {
 		test := test
 		t.Logf("%s>>> test %02d%s", testhelper.ANSIPurple, i, testhelper.ANSIEnd)
 		gotjb := New(test.gcsBucket, test.gcsDataDir, test.gcsIndexDir, test.gcsBaseID, test.datatype, test.date)
-		timestamp, err := time.Parse("2006/01/02T150405.000000Z", gotjb.Timestamp)
+		timestamp, err := time.Parse("2006/01/02/20060102T150405.000000Z", gotjb.Timestamp)
 		if err != nil {
 			t.Fatalf("time.Parse() = %v", err)
 		}
@@ -56,7 +56,8 @@ func TestDescription(t *testing.T) {
 	t.Parallel()
 	nowUTC := time.Now().UTC()
 	jb := newTestJb(nowUTC)
-	wantDescription := fmt.Sprintf("bundle <%v %v %v>", nowUTC.Format("2006/01/02T150405.000000Z"), jb.Datatype, jb.Date)
+	timestamp := formatTimestamp(jb.Date, nowUTC)
+	wantDescription := fmt.Sprintf("bundle <%v %v %v>", timestamp, jb.Datatype, jb.Date)
 	if jb.Description() != wantDescription {
 		t.Fatalf("jb.Description() = %v, want %v", jb.Description(), wantDescription)
 	}
@@ -182,12 +183,12 @@ func newJb(bucket, gcsDataDir, gcsIndexDir, gcsBaseID, datatype string, date civ
 		Lines:      []string{},
 		BadFiles:   []string{},
 		Index:      []api.IndexV1{},
-		Timestamp:  timestamp.Format("2006/01/02T150405.000000Z"),
+		Timestamp:  formatTimestamp(date, timestamp),
 		Datatype:   datatype,
 		Date:       date,
-		BundleDir:  dirName(gcsDataDir, timestamp),
+		BundleDir:  dirName(gcsDataDir, date),
 		BundleName: objectName(timestamp, gcsBaseID, "data"),
-		IndexDir:   dirName(gcsIndexDir, timestamp),
+		IndexDir:   dirName(gcsIndexDir, date),
 		IndexName:  objectName(timestamp, gcsBaseID, "index1"),
 		Size:       0,
 		bucket:     bucket,
@@ -196,9 +197,9 @@ func newJb(bucket, gcsDataDir, gcsIndexDir, gcsBaseID, datatype string, date civ
 
 func Test_dirName(t *testing.T) {
 	dir := "gs://bucket/autoload/v1/experiment/datatype"
-	time := time.Date(2023, 03, 30, 4, 4, 0, 0, time.UTC)
+	date := civil.Date{Year: 2023, Month: 03, Day: 30}
 	want := dir + "/2023/03/30"
-	if got := dirName(dir, time); got != want {
+	if got := dirName(dir, date); got != want {
 		t.Errorf("dirName() = %v, want %v", got, want)
 	}
 }

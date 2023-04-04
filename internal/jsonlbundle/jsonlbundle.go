@@ -12,7 +12,6 @@ import (
 
 	"cloud.google.com/go/civil"
 
-	"github.com/m-lab/go/timex"
 	"github.com/m-lab/jostler/api"
 )
 
@@ -69,12 +68,12 @@ func New(bucket, gcsDataDir, gcsIndexDir, gcsBaseID, datatype string, date civil
 		Lines:      []string{},
 		BadFiles:   []string{},
 		Index:      []api.IndexV1{},
-		Timestamp:  nowUTC.Format("2006/01/02T150405.000000Z"),
+		Timestamp:  formatTimestamp(date, nowUTC),
 		Datatype:   datatype,
 		Date:       date,
-		BundleDir:  dirName(gcsDataDir, nowUTC),
+		BundleDir:  dirName(gcsDataDir, date),
 		BundleName: objectName(nowUTC, gcsBaseID, "data"),
-		IndexDir:   dirName(gcsIndexDir, nowUTC),
+		IndexDir:   dirName(gcsIndexDir, date),
 		IndexName:  objectName(nowUTC, gcsBaseID, "index1"),
 		Size:       0,
 		bucket:     bucket,
@@ -202,10 +201,19 @@ func readJSONFile(fullPath string) (string, error) {
 	return contents, nil
 }
 
+// formatTimestamp returns a string of the form 2023/04/03/20230404T154435.729707Z,
+// where the prefix (2023/04/03) comes from the filepath date (e.g., var/spool/experiment/datatype/2023/04/03)
+// and the suffix (20230404T154435.729707Z) comes from time.Now().
+// This is done to differentiate bundles created on the same day containing measurements
+// collected on different dates.
+func formatTimestamp(date civil.Date, now time.Time) string {
+	return fmt.Sprintf("%d/%02d/%02d/%s", date.Year, date.Month, date.Day, now.Format("20060102T150405.000000Z"))
+}
+
 func objectName(t time.Time, gcsBaseID, bundleType string) string {
 	return fmt.Sprintf("%s-%s-%s.jsonl.gz", t.Format("20060102T150405.000000Z"), gcsBaseID, bundleType)
 }
 
-func dirName(gcsDir string, t time.Time) string {
-	return fmt.Sprintf("%s/%s", gcsDir, t.Format(timex.YYYYMMDDWithSlash))
+func dirName(gcsDir string, date civil.Date) string {
+	return fmt.Sprintf("%s/%d/%02d/%02d", gcsDir, date.Year, date.Month, date.Day)
 }
