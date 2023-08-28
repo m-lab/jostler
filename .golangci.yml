@@ -25,7 +25,7 @@ linters-settings:
   gocyclo:
     min-complexity: 15
   gofumpt:
-    lang-version: 1.19
+    lang-version: 1.20
   gosec:
     excludes:
       - G306 # Expect WriteFile permissions to be 0600 or less

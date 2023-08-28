@@ -1,8 +1,9 @@
 module github.com/m-lab/jostler
 
-go 1.19
+go 1.20
 
 require (
+	cloud.google.com/go v0.104.0
 	cloud.google.com/go/bigquery v1.43.0
 	cloud.google.com/go/storage v1.27.0
 	github.com/googleapis/google-cloud-go-testing v0.0.0-20191008195207-8e1d251e947d
@@ -13,7 +14,6 @@ require (
 )
 
 require (
-	cloud.google.com/go v0.104.0 // indirect
 	cloud.google.com/go/compute v1.10.0 // indirect
 	cloud.google.com/go/iam v0.5.0 // indirect
 	github.com/araddon/dateparse v0.0.0-20200409225146-d820a6159ab1 // indirect
