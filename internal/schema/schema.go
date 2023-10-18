@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path"
 	"sort"
 	"strings"
 
@@ -31,6 +32,18 @@ type (
 	}
 )
 
+type SchemaStatus int
+
+const (
+	SchemaUndefined SchemaStatus = iota
+	SchemaInvalid
+	SchemaNotFound
+	SchemaTypeIncompatible
+	SchemaBackwardCompatible
+	SchemaNew
+	SchemaMatch
+)
+
 // Exported errors.
 var (
 	ErrStorageClient  = errors.New("failed to create storage client")
@@ -45,15 +58,15 @@ var (
 	ErrType           = errors.New("unexpected type")
 	ErrDownload       = errors.New("failed to download schema")
 	ErrUpload         = errors.New("failed to upload schema")
+	ErrNewFields      = errors.New("difference(s) in schema new fields")
 )
 
 var (
 	// LocalDataDir is the root of the local directory.
 	LocalDataDir = "/var/spool"
 	// GCSDataDir is the left-most prefix ("root") of GCS objects.
-	GCSDataDir            = "autoload/v1"
-	dtSchemaPathTemplate  = "/datatypes/<datatype>.json"
-	tblSchemaPathTemplate = "/tables/<experiment>/<datatype>.table.json"
+	GCSDataDir           = "autoload/v1"
+	dtSchemaPathTemplate = "/datatypes/<datatype>.json"
 
 	// Testing and debugging support.
 	verbosef = func(fmt string, args ...interface{}) {}
@@ -113,33 +126,58 @@ func CreateTableSchemaJSON(datatype, dtSchemaFile string) ([]byte, error) {
 // if they are not compatibale.  If the new table schema is a superset
 // of the previous one, it will be uploaded to GCS.
 func ValidateAndUpload(gcsClient DownloaderUploader, bucket, experiment, datatype, dtSchemaFile string) error {
-	if err := ValidateSchemaFile(dtSchemaFile); err != nil {
+	status, err := Validate(gcsClient, bucket, experiment, datatype, dtSchemaFile)
+
+	switch status {
+	// Upload.
+	case SchemaNotFound:
+		fallthrough
+	case SchemaNew:
+		return uploadTableSchema(gcsClient, bucket, experiment, datatype, dtSchemaFile)
+
+	// Do not upload.
+	case SchemaBackwardCompatible:
+		fallthrough
+	case SchemaInvalid:
+		fallthrough
+	case SchemaTypeIncompatible:
+		fallthrough
+	case SchemaMatch:
 		return err
+	default:
+		panic(fmt.Sprintf("unknown schema status: %d", status))
+	}
+}
+
+// Validate ...
+func Validate(gcsClient DownloaderUploader, bucket, experiment, datatype, dtSchemaFile string) (SchemaStatus, error) {
+	if err := ValidateSchemaFile(dtSchemaFile); err != nil {
+		return SchemaInvalid, err
 	}
 	diff, err := diffTableSchemas(gcsClient, bucket, experiment, datatype, dtSchemaFile)
 	if err != nil {
 		if !errors.Is(err, storage.ErrObjectNotExist) {
-			return fmt.Errorf("%v: %w", ErrCompare, err)
+			return SchemaInvalid, fmt.Errorf("%v: %w", ErrCompare, err)
 		}
 		// Scenario 1: old doesn't exist, should upload new.
-		verbosef("no old table schema")
-		return uploadTableSchema(gcsClient, bucket, experiment, datatype, dtSchemaFile)
-	}
-	if diff.nInOld != 0 {
-		// Scenario 4 - new incompatible with old due to missing fields, should not upload.
-		return fmt.Errorf("incompatible schema: %2d %w", diff.nInOld, ErrOnlyInOld)
+		return SchemaNotFound, nil
 	}
 	if diff.nType != 0 {
 		// Scenario 4 - new incompatible with old due to field type mismatch, should not upload.
-		return fmt.Errorf("incompatible schema: %2d %w", diff.nType, ErrTypeMismatch)
+		return SchemaTypeIncompatible, fmt.Errorf("incompatible schema: %2d %w", diff.nType, ErrTypeMismatch)
+	}
+	if diff.nInOld != 0 {
+		// Scenario 4 - new incompatible with old due to missing fields in new, should not upload.
+		// But, the new schema remains backward compatible with the old schema.
+		return SchemaBackwardCompatible, fmt.Errorf("backward compatible schema: %2d %w", diff.nInOld, ErrOnlyInOld)
 	}
 	if diff.nInNew != 0 {
 		// Scenario 3 - new is a superset of old, should upload.
 		verbosef("%2d field(s) only in new schema", diff.nInNew)
-		return uploadTableSchema(gcsClient, bucket, experiment, datatype, dtSchemaFile)
+		return SchemaNew, fmt.Errorf("schema differences: %2d %w", diff.nInNew, ErrNewFields)
 	}
 	// Scenario 2 - old exists and matches new, should not upload.
-	return nil
+	return SchemaMatch, nil
 }
 
 // diffTableSchemas builds a new table schema for the given datatype,
@@ -196,8 +234,8 @@ func diffTableSchemas(gcsClient DownloaderUploader, bucket, experiment, datatype
 // tblSchemPath returns the GCS object name (aka path) for the given
 // experiment and datatype.
 func tblSchemaPath(experiment, datatype string) string {
-	objPath := strings.Replace(tblSchemaPathTemplate, "<experiment>", experiment, 1)
-	return GCSDataDir + strings.Replace(objPath, "<datatype>", datatype, 1)
+	schPath := path.Join("tables", experiment, datatype) + ".table.json"
+	return path.Join(GCSDataDir, schPath)
 }
 
 // uploadTableSchema creates a table schema for the given datatype schema
