@@ -14,7 +14,7 @@ script:
 - go vet ./...
 - CGO_ENABLED=0 go build ./...
 - go test ./... -race
-- go test ./... -v -coverprofile=_coverage.cov
+- go test ./... -v -covermode=count -coverprofile=_coverage.cov
 
 after_success:
 # Coveralls
