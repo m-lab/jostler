@@ -22,6 +22,7 @@ var (
 	bucket       string
 	gcsDataDir   string
 	mlabNodeName string
+	organization string
 
 	// Flags related to bundles.
 	dtSchemaFiles flagx.StringArray
@@ -43,15 +44,17 @@ var (
 	testInterval time.Duration
 
 	// Errors related to command line parsing and validation.
-	errExtraArgs      = errors.New("extra arguments on the command line")
-	errNoNode         = errors.New("must specify mlab-node-name")
-	errNoBucket       = errors.New("must specify GCS bucket")
-	errNoExperiment   = errors.New("must specify experiment")
-	errNoDatatype     = errors.New("must specify at least one datatype")
-	errSchemaNums     = errors.New("more schema files than datatypes")
-	errSchemaNoMatch  = errors.New("does not match any specified datatypes")
-	errSchemaFilename = errors.New("is not in <datatype>:<pathname> format")
-	errValidate       = errors.New("failed to validate")
+	errExtraArgs           = errors.New("extra arguments on the command line")
+	errNoNode              = errors.New("must specify mlab-node-name")
+	errNoBucket            = errors.New("must specify GCS bucket")
+	errNoExperiment        = errors.New("must specify experiment")
+	errNoDatatype          = errors.New("must specify at least one datatype")
+	errSchemaNums          = errors.New("more schema files than datatypes")
+	errSchemaNoMatch       = errors.New("does not match any specified datatypes")
+	errSchemaFilename      = errors.New("is not in <datatype>:<pathname> format")
+	errValidate            = errors.New("failed to validate")
+	errAutoloadOrgRequired = errors.New("organization is required if not using autoload/v1 conventions")
+	errAutoloadOrgInvalid  = errors.New("organization is not valid for autoload/v1 conventions")
 )
 
 func initFlags() {
@@ -59,6 +62,7 @@ func initFlags() {
 	flag.StringVar(&bucket, "gcs-bucket", "", "required - GCS bucket name")
 	flag.StringVar(&gcsDataDir, "gcs-data-dir", "autoload/v1", "home directory in GCS bucket under which bundles will be uploaded")
 	flag.StringVar(&mlabNodeName, "mlab-node-name", "", "required - node name specified directly or via MLAB_NODE_NAME env variable")
+	flag.StringVar(&organization, "organization", "", "optional - the organization name for autoload/v2 conventions")
 
 	// Flags related to bundles.
 	dtSchemaFiles = flagx.StringArray{}
@@ -141,6 +145,12 @@ func parseAndValidateCLI() error {
 	}
 	if err := validateSchemaFlags(); err != nil {
 		return err
+	}
+	if !strings.Contains(gcsDataDir, "autoload/v1") && organization == "" {
+		return errAutoloadOrgRequired
+	}
+	if strings.Contains(gcsDataDir, "autoload/v1") && organization != "" {
+		return errAutoloadOrgInvalid
 	}
 	return validateSchemaFiles()
 }
