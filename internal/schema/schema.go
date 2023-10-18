@@ -32,11 +32,13 @@ type (
 	}
 )
 
+// SchemaStatus defines the states returned by Validate().
 type SchemaStatus int
 
 const (
 	SchemaUndefined SchemaStatus = iota
 	SchemaInvalid
+	SchemaError
 	SchemaNotFound
 	SchemaTypeIncompatible
 	SchemaBackwardCompatible
@@ -121,10 +123,10 @@ func CreateTableSchemaJSON(datatype, dtSchemaFile string) ([]byte, error) {
 	return tblSchemaJSON, nil
 }
 
-// ValidateAndUpload compares the current table schema against the
-// previous table schema for the given datatype and returns an error
-// if they are not compatibale.  If the new table schema is a superset
-// of the previous one, it will be uploaded to GCS.
+// ValidateAndUpload compares the given table schema against the previous table
+// schema for the given datatype and returns an error if they are not
+// compatibale. If the new table schema is a superset of the previous one, it
+// will be uploaded to GCS.
 func ValidateAndUpload(gcsClient DownloaderUploader, bucket, experiment, datatype, dtSchemaFile string) error {
 	status, err := Validate(gcsClient, bucket, experiment, datatype, dtSchemaFile)
 
@@ -140,6 +142,8 @@ func ValidateAndUpload(gcsClient DownloaderUploader, bucket, experiment, datatyp
 		fallthrough
 	case SchemaInvalid:
 		fallthrough
+	case SchemaError:
+		fallthrough
 	case SchemaTypeIncompatible:
 		fallthrough
 	case SchemaMatch:
@@ -149,7 +153,9 @@ func ValidateAndUpload(gcsClient DownloaderUploader, bucket, experiment, datatyp
 	}
 }
 
-// Validate ...
+// Validate checks the given table schema against the previous table schema for
+// various differences and returns a SchemaStatus corresponding to the
+// difference.
 func Validate(gcsClient DownloaderUploader, bucket, experiment, datatype, dtSchemaFile string) (SchemaStatus, error) {
 	if err := ValidateSchemaFile(dtSchemaFile); err != nil {
 		return SchemaInvalid, err
@@ -157,7 +163,7 @@ func Validate(gcsClient DownloaderUploader, bucket, experiment, datatype, dtSche
 	diff, err := diffTableSchemas(gcsClient, bucket, experiment, datatype, dtSchemaFile)
 	if err != nil {
 		if !errors.Is(err, storage.ErrObjectNotExist) {
-			return SchemaInvalid, fmt.Errorf("%v: %w", ErrCompare, err)
+			return SchemaError, fmt.Errorf("%v: %w", ErrCompare, err)
 		}
 		// Scenario 1: old doesn't exist, should upload new.
 		return SchemaNotFound, nil
@@ -166,15 +172,15 @@ func Validate(gcsClient DownloaderUploader, bucket, experiment, datatype, dtSche
 		// Scenario 4 - new incompatible with old due to field type mismatch, should not upload.
 		return SchemaTypeIncompatible, fmt.Errorf("incompatible schema: %2d %w", diff.nType, ErrTypeMismatch)
 	}
-	if diff.nInOld != 0 {
-		// Scenario 4 - new incompatible with old due to missing fields in new, should not upload.
-		// But, the new schema remains backward compatible with the old schema.
-		return SchemaBackwardCompatible, fmt.Errorf("backward compatible schema: %2d %w", diff.nInOld, ErrOnlyInOld)
-	}
 	if diff.nInNew != 0 {
 		// Scenario 3 - new is a superset of old, should upload.
 		verbosef("%2d field(s) only in new schema", diff.nInNew)
 		return SchemaNew, fmt.Errorf("schema differences: %2d %w", diff.nInNew, ErrNewFields)
+	}
+	if diff.nInOld != 0 {
+		// Scenario 4 - new incompatible with old due to missing fields in new, should not upload.
+		// But, the new schema remains backward compatible with the old schema, because types match and there are no new fields.
+		return SchemaBackwardCompatible, fmt.Errorf("backward compatible schema: %2d %w", diff.nInOld, ErrOnlyInOld)
 	}
 	// Scenario 2 - old exists and matches new, should not upload.
 	return SchemaMatch, nil
