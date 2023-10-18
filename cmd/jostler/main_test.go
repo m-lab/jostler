@@ -142,6 +142,7 @@ func TestCLI(t *testing.T) {
 				"-experiment", testExperiment,
 				"-datatype", "foo1",
 				"-datatype-schema-file", "foo1:testdata/datatypes/foo1-valid.json",
+				"-gcs-data-dir=testdata/autoload/v1",
 			},
 		},
 		{
@@ -153,6 +154,7 @@ func TestCLI(t *testing.T) {
 				"-experiment", testExperiment,
 				"-datatype", "foo1",
 				"-datatype-schema-file", "foo1:testdata/datatypes/foo1-valid.json",
+				"-gcs-data-dir=testdata/autoload/v1",
 			},
 		},
 		{
@@ -164,6 +166,7 @@ func TestCLI(t *testing.T) {
 				"-experiment", testExperiment,
 				"-datatype", "foo1",
 				"-datatype-schema-file", "foo1:testdata/datatypes/foo1-valid-superset.json",
+				"-gcs-data-dir=testdata/autoload/v1",
 			},
 		},
 		{
@@ -175,6 +178,34 @@ func TestCLI(t *testing.T) {
 				"-experiment", testExperiment,
 				"-datatype", "foo1",
 				"-datatype-schema-file", "foo1:testdata/datatypes/foo1-valid.json",
+				"-gcs-data-dir=testdata/autoload/v1",
+			},
+		},
+		// Invalid autoloading configurations.
+		{
+			"invalid: scenario 1", false, errAutoloadOrgInvalid.Error(),
+			[]string{
+				"-gcs-bucket", "newclient,download",
+				"-mlab-node-name", testNode,
+				"-local-data-dir", testLocalDataDir,
+				"-experiment", testExperiment,
+				"-datatype", "foo1",
+				"-datatype-schema-file", "foo1:testdata/datatypes/foo1-valid.json",
+				"-gcs-data-dir=testdata/autoload/v1",
+				"-organization=bar1", // Should not specify organization for an autoload/v1 run.
+			},
+		},
+		{
+			"invalid: scenario 2", true, errAutoloadOrgRequired.Error(),
+			[]string{
+				"-gcs-bucket", "newclient,download",
+				"-mlab-node-name", testNode,
+				"-local-data-dir", testLocalDataDir,
+				"-experiment", testExperiment,
+				"-datatype", "foo1",
+				"-datatype-schema-file", "foo1:testdata/datatypes/foo1-valid.json",
+				"-gcs-data-dir=testdata/autoload/v2", // any value other than autoload/v1.
+				"-organization=",                     // Organization is required.
 			},
 		},
 	}
@@ -183,6 +214,7 @@ func TestCLI(t *testing.T) {
 		os.RemoveAll("testdata/autoload")
 	}()
 	for i, test := range tests {
+		t.Logf("name: %s", test.name)
 		if test.rmTblSchemaFile {
 			os.RemoveAll("testdata/autoload/v1/tables/jostler/foo1.table.json")
 		}
@@ -196,7 +228,7 @@ func TestCLI(t *testing.T) {
 		args := test.args
 		// Use a local disk storage implementation that mimics downloads
 		// from and uploads to GCS.
-		args = append(args, []string{"-gcs-local-disk", "-gcs-data-dir", "testdata/autoload/v1"}...)
+		args = append(args, []string{"-gcs-local-disk"}...)
 		if testing.Verbose() {
 			args = append(args, "-verbose")
 		}

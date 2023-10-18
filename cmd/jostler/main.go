@@ -105,7 +105,18 @@ func daemonMode() error {
 	// ones are a superset of the previous table.
 	for _, datatype := range datatypes {
 		dtSchemaFile := schema.PathForDatatype(datatype, dtSchemaFiles)
-		if err = schema.ValidateAndUpload(stClient, bucket, experiment, datatype, dtSchemaFile); err != nil {
+		if organization == "" {
+			err = schema.ValidateAndUpload(stClient, bucket, experiment, datatype, dtSchemaFile)
+		} else {
+			// Use autoload/v2 conventions, do not upload local schema.
+			var status schema.SchemaStatus
+			status, err = schema.Validate(stClient, bucket, experiment, datatype, dtSchemaFile)
+			if status == schema.SchemaBackwardCompatible {
+				// Allow backward compatible local schemas.
+				err = nil
+			}
+		}
+		if err != nil {
 			mainCancel()
 			return fmt.Errorf("%v: %w", datatype, err)
 		}
@@ -191,8 +202,8 @@ func startUploader(mainCtx context.Context, mainCancel context.CancelFunc, statu
 	gcsConf := uploadbundle.GCSConfig{
 		GCSClient: stClient,
 		Bucket:    bucket,
-		DataDir:   filepath.Join(gcsDataDir, experiment, datatype),
-		IndexDir:  filepath.Join(gcsDataDir, experiment, "index1"),
+		DataDir:   filepath.Join(gcsDataDir, organization, experiment, datatype),
+		IndexDir:  filepath.Join(gcsDataDir, organization, experiment, "index1"),
 		BaseID:    fmt.Sprintf("%s-%s-%s-%s", datatype, nameParts.Machine, nameParts.Site, experiment),
 	}
 	bundleConf := uploadbundle.BundleConfig{
