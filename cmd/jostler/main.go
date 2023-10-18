@@ -106,13 +106,13 @@ func daemonMode() error {
 	for _, datatype := range datatypes {
 		dtSchemaFile := schema.PathForDatatype(datatype, dtSchemaFiles)
 		if uploadSchema {
-			// Use autoload/v1 conventions, and authoritative autoload/v2 configurations.
+			// For autoload/v1 conventions and authoritative autoload/v2 configurations.
 			err = schema.ValidateAndUpload(stClient, bucket, experiment, datatype, dtSchemaFile)
 		} else {
+			// For autoload/v2 conventions without local schema uploads.
 			var status schema.SchemaStatus
-			// Use autoload/v2 conventions, without uploading local schemas.
 			status, err = schema.Validate(stClient, bucket, experiment, datatype, dtSchemaFile)
-			// Allow backward compatible local schemas. Note: local schemas that are new will cause an error.
+			// Allow backward compatible local schemas. NOTE: local schemas that are new will cause an error.
 			if status == schema.SchemaBackwardCompatible {
 				err = nil
 			}
