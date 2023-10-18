@@ -208,7 +208,47 @@ func TestCLI(t *testing.T) {
 				"-organization=",                     // Organization is required.
 			},
 		},
-		// TODO: add a v2 new schema.
+		{
+			"invalid: scenario 3", true, errOrgName.Error(),
+			[]string{
+				"-gcs-bucket", "newclient,download",
+				"-mlab-node-name", testNode,
+				"-local-data-dir", testLocalDataDir,
+				"-experiment", testExperiment,
+				"-datatype", "foo1",
+				"-datatype-schema-file", "foo1:testdata/datatypes/foo1-valid.json",
+				"-gcs-data-dir=testdata/autoload/v2", // any value other than autoload/v1.
+				"-organization=INVALIDNAME",          // Organization is invalid.
+			},
+		},
+		{
+			"valid: scenario 4 - upload authoritative new schema", true, "",
+			[]string{
+				"-gcs-bucket", "newclient,download,upload",
+				"-mlab-node-name", testNode,
+				"-local-data-dir", testLocalDataDir,
+				"-experiment", testExperiment,
+				"-datatype", "foo1",
+				"-datatype-schema-file", "foo1:testdata/datatypes/foo1-valid.json",
+				"-gcs-data-dir=testdata/autoload/v2",
+				"-organization=foo1org",
+				"-upload-schema=true", // allow uploads.
+			},
+		},
+		{
+			"invalid: scenario 4 - cannot upload new v2 schema", false, "foo1: schema differences:  1 difference(s) in schema new fields",
+			[]string{
+				"-gcs-bucket", "newclient,download",
+				"-mlab-node-name", testNode,
+				"-local-data-dir", testLocalDataDir,
+				"-experiment", testExperiment,
+				"-datatype", "foo1",
+				"-datatype-schema-file", "foo1:testdata/datatypes/foo1-valid-superset.json", // superset schema.
+				"-gcs-data-dir=testdata/autoload/v2",
+				"-organization=foo1org",
+				"-upload-schema=false", // do not allow uploads.
+			},
+		},
 	}
 	defer func() {
 		os.RemoveAll("foo1.json")
