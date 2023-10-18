@@ -208,6 +208,7 @@ func TestCLI(t *testing.T) {
 				"-organization=",                     // Organization is required.
 			},
 		},
+		// TODO: add a v2 new schema.
 	}
 	defer func() {
 		os.RemoveAll("foo1.json")
