@@ -236,7 +236,7 @@ func TestCLI(t *testing.T) {
 			},
 		},
 		{
-			"invalid: scenario 4 - cannot upload new v2 schema", false, "foo1: schema differences:  1 difference(s) in schema new fields",
+			"invalid: scenario 4 - cannot upload new v2 schema", false, schema.ErrNewFields.Error(),
 			[]string{
 				"-gcs-bucket", "newclient,download",
 				"-mlab-node-name", testNode,
