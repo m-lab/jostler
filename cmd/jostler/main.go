@@ -110,11 +110,12 @@ func daemonMode() error {
 			err = schema.ValidateAndUpload(stClient, bucket, experiment, datatype, dtSchemaFile)
 		} else {
 			// For autoload/v2 conventions without local schema uploads.
-			var status schema.SchemaStatus
-			status, err = schema.Validate(stClient, bucket, experiment, datatype, dtSchemaFile)
+			status, xerr := schema.Validate(stClient, bucket, experiment, datatype, dtSchemaFile)
 			// Allow backward compatible local schemas. NOTE: local schemas that are new will cause an error.
 			if status == schema.SchemaBackwardCompatible {
 				err = nil
+			} else {
+				err = xerr
 			}
 		}
 		if err != nil {
