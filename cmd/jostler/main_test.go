@@ -258,6 +258,7 @@ func TestCLI(t *testing.T) {
 		t.Logf("name: %s", test.name)
 		if test.rmTblSchemaFile {
 			os.RemoveAll("testdata/autoload/v1/tables/jostler/foo1.table.json")
+			os.RemoveAll("testdata/autoload/v2/tables/jostler/foo1.table.json")
 		}
 		var s string
 		if test.wantErrStr == "" {
