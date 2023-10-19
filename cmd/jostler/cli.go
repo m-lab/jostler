@@ -69,7 +69,7 @@ func initFlags() {
 	flag.StringVar(&gcsDataDir, "gcs-data-dir", "autoload/v1", "home directory in GCS bucket under which bundles will be uploaded")
 	flag.StringVar(&mlabNodeName, "mlab-node-name", "", "required - node name specified directly or via MLAB_NODE_NAME env variable")
 	flag.StringVar(&organization, "organization", "", "the organization name; required for autoload/v2 conventions")
-	flag.BoolVar(&uploadSchema, "upload-schema", true, "upload the local table schema")
+	flag.BoolVar(&uploadSchema, "upload-schema", true, "upload the local table schema if necessary")
 
 	// Flags related to bundles.
 	dtSchemaFiles = flagx.StringArray{}
