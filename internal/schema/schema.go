@@ -32,25 +32,12 @@ type (
 	}
 )
 
-// SchemaStatus defines the states returned by Validate().
-type SchemaStatus int
-
-const (
-	SchemaUndefined SchemaStatus = iota
-	SchemaInvalid
-	SchemaError
-	SchemaNotFound
-	SchemaTypeIncompatible
-	SchemaBackwardCompatible
-	SchemaNew
-	SchemaMatch
-)
-
 // Exported errors.
 var (
 	ErrStorageClient  = errors.New("failed to create storage client")
 	ErrReadSchema     = errors.New("failed to read schema file")
 	ErrEmptySchema    = errors.New("empty schema file")
+	ErrInvalidSchema  = errors.New("invalid schema file")
 	ErrSchemaFromJSON = errors.New("failed to create schema from JSON")
 	ErrMarshal        = errors.New("failed to marshal schema")
 	ErrUnmarshal      = errors.New("failed to unmarshal schema")
@@ -61,6 +48,8 @@ var (
 	ErrDownload       = errors.New("failed to download schema")
 	ErrUpload         = errors.New("failed to upload schema")
 	ErrNewFields      = errors.New("difference(s) in schema new fields")
+	ErrSchemaMatch    = errors.New("old and new schemas match")
+	ErrSchemaNotFound = errors.New("schema not found")
 )
 
 var (
@@ -128,62 +117,62 @@ func CreateTableSchemaJSON(datatype, dtSchemaFile string) ([]byte, error) {
 // compatibale. If the new table schema is a superset of the previous one, it
 // will be uploaded to GCS.
 func ValidateAndUpload(gcsClient DownloaderUploader, bucket, experiment, datatype, dtSchemaFile string) error {
-	status, err := Validate(gcsClient, bucket, experiment, datatype, dtSchemaFile)
+	err := Validate(gcsClient, bucket, experiment, datatype, dtSchemaFile)
 
-	switch status {
+	switch {
 	// Upload.
-	case SchemaNotFound:
+	case errors.Is(err, ErrSchemaNotFound):
 		fallthrough
-	case SchemaNew:
+	case errors.Is(err, ErrNewFields):
 		return uploadTableSchema(gcsClient, bucket, experiment, datatype, dtSchemaFile)
 
 	// Do not upload.
-	case SchemaBackwardCompatible:
+	case errors.Is(err, ErrOnlyInOld):
 		fallthrough
-	case SchemaInvalid:
+	case errors.Is(err, ErrInvalidSchema):
 		fallthrough
-	case SchemaError:
+	case errors.Is(err, ErrCompare):
 		fallthrough
-	case SchemaTypeIncompatible:
+	case errors.Is(err, ErrTypeMismatch):
 		fallthrough
-	case SchemaMatch:
+	case errors.Is(err, ErrSchemaMatch):
 		return err
 	default:
-		panic(fmt.Sprintf("unknown schema status: %d", status))
+		panic(fmt.Sprintf("unknown schema status: %v", err))
 	}
 }
 
 // Validate checks the given table schema against the previous table schema for
 // various differences and returns a SchemaStatus corresponding to the
 // difference.
-func Validate(gcsClient DownloaderUploader, bucket, experiment, datatype, dtSchemaFile string) (SchemaStatus, error) {
+func Validate(gcsClient DownloaderUploader, bucket, experiment, datatype, dtSchemaFile string) error {
 	if err := ValidateSchemaFile(dtSchemaFile); err != nil {
-		return SchemaInvalid, err
+		return fmt.Errorf("%v: %w", err, ErrInvalidSchema)
 	}
 	diff, err := diffTableSchemas(gcsClient, bucket, experiment, datatype, dtSchemaFile)
 	if err != nil {
 		if !errors.Is(err, storage.ErrObjectNotExist) {
-			return SchemaError, fmt.Errorf("%v: %w", ErrCompare, err)
+			return fmt.Errorf("%v: %w", err, ErrCompare)
 		}
 		// Scenario 1: old doesn't exist, should upload new.
-		return SchemaNotFound, nil
+		return ErrSchemaNotFound
 	}
 	if diff.nType != 0 {
 		// Scenario 4 - new incompatible with old due to field type mismatch, should not upload.
-		return SchemaTypeIncompatible, fmt.Errorf("incompatible schema: %2d %w", diff.nType, ErrTypeMismatch)
+		return fmt.Errorf("incompatible schema: %2d %w", diff.nType, ErrTypeMismatch)
 	}
 	if diff.nInNew != 0 {
 		// Scenario 3 - new is a superset of old, should upload.
 		verbosef("%2d field(s) only in new schema", diff.nInNew)
-		return SchemaNew, fmt.Errorf("schema differences: %2d %w", diff.nInNew, ErrNewFields)
+		return fmt.Errorf("schema differences: %2d %w", diff.nInNew, ErrNewFields)
 	}
 	if diff.nInOld != 0 {
 		// Scenario 4 - new incompatible with old due to missing fields in new, should not upload.
 		// But, the new schema remains backward compatible with the old schema, because types match and there are no new fields.
-		return SchemaBackwardCompatible, fmt.Errorf("backward compatible schema: %2d %w", diff.nInOld, ErrOnlyInOld)
+		return fmt.Errorf("backward compatible schema: %2d %w", diff.nInOld, ErrOnlyInOld)
 	}
 	// Scenario 2 - old exists and matches new, should not upload.
-	return SchemaMatch, nil
+	return ErrSchemaMatch
 }
 
 // diffTableSchemas builds a new table schema for the given datatype,

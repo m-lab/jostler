@@ -155,7 +155,7 @@ func TestValidateAndUpload(t *testing.T) {
 			experiment:      testExperiment,
 			datatype:        testDatatype,
 			dtSchemaFile:    "testdata/datatypes/foo1-valid.json",
-			wantErr:         nil,
+			wantErr:         schema.ErrSchemaMatch,
 		},
 		{
 			name:            "scenario 3 - old exists, new is a superset, should upload",
