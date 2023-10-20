@@ -146,7 +146,7 @@ func TestCLI(t *testing.T) {
 			},
 		},
 		{
-			"daemon: scenario 2", false, "",
+			"daemon: scenario 2", false, schema.ErrSchemaMatch.Error(),
 			[]string{
 				"-gcs-bucket", "newclient,download",
 				"-mlab-node-name", testNode,
@@ -181,7 +181,7 @@ func TestCLI(t *testing.T) {
 				"-gcs-data-dir=testdata/autoload/v1",
 			},
 		},
-		// Invalid autoloading configurations.
+		// autoload/v2 flag and configuration testing.
 		{
 			"invalid: scenario 1", false, errAutoloadOrgInvalid.Error(),
 			[]string{
@@ -236,6 +236,20 @@ func TestCLI(t *testing.T) {
 			},
 		},
 		{
+			"valid: scenario 4 - allow matching schema without upload", false, "",
+			[]string{
+				"-gcs-bucket", "newclient,download,upload",
+				"-mlab-node-name", testNode,
+				"-local-data-dir", testLocalDataDir,
+				"-experiment", testExperiment,
+				"-datatype", "foo1",
+				"-datatype-schema-file", "foo1:testdata/datatypes/foo1-valid.json",
+				"-gcs-data-dir=testdata/autoload/v2",
+				"-organization=foo1org",
+				"-upload-schema=false",
+			},
+		},
+		{
 			"invalid: scenario 4 - cannot upload new v2 schema", false, schema.ErrNewFields.Error(),
 			[]string{
 				"-gcs-bucket", "newclient,download",
@@ -246,7 +260,35 @@ func TestCLI(t *testing.T) {
 				"-datatype-schema-file", "foo1:testdata/datatypes/foo1-valid-superset.json", // superset schema.
 				"-gcs-data-dir=testdata/autoload/v2",
 				"-organization=foo1org",
-				"-upload-schema=false", // do not allow uploads.
+				"-upload-schema=false",
+			},
+		},
+		{
+			"valid: scenario 5 - upload newer authoritative new schema", true, "",
+			[]string{
+				"-gcs-bucket", "newclient,download,upload",
+				"-mlab-node-name", testNode,
+				"-local-data-dir", testLocalDataDir,
+				"-experiment", testExperiment,
+				"-datatype", "foo1",
+				"-datatype-schema-file", "foo1:testdata/datatypes/foo1-valid-superset.json",
+				"-gcs-data-dir=testdata/autoload/v2",
+				"-organization=foo1org",
+				"-upload-schema=true", // allow uploads.
+			},
+		},
+		{
+			"valid: scenario 5 - allow backward compatible schema", false, "",
+			[]string{
+				"-gcs-bucket", "newclient,download,upload",
+				"-mlab-node-name", testNode,
+				"-local-data-dir", testLocalDataDir,
+				"-experiment", testExperiment,
+				"-datatype", "foo1",
+				"-datatype-schema-file", "foo1:testdata/datatypes/foo1-valid.json",
+				"-gcs-data-dir=testdata/autoload/v2",
+				"-organization=foo1org",
+				"-upload-schema=false",
 			},
 		},
 	}
