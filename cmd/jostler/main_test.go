@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/m-lab/go/prometheusx"
 	"github.com/m-lab/jostler/internal/schema"
 	"github.com/m-lab/jostler/internal/testhelper"
 )
@@ -30,6 +31,9 @@ var (
 
 // TestCLI tests non-interactive CLI invocations.
 func TestCLI(t *testing.T) {
+	// Prevent "bind: address already in use" errors during tests.
+	addr := ":0"
+	prometheusx.ListenAddress = &addr
 	tests := []struct {
 		name            string   // name of the test
 		rmTblSchemaFile bool     // if true, remove table schema file before running the test
