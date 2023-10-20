@@ -105,6 +105,7 @@ func daemonMode() error {
 	// ones are a superset of the previous table.
 	for _, datatype := range datatypes {
 		dtSchemaFile := schema.PathForDatatype(datatype, dtSchemaFiles)
+		// TODO(soltesz): simplify the supporting logic for the validate & upload cases.
 		if uploadSchema {
 			// For autoload/v1 conventions and authoritative autoload/v2 configurations.
 			err = schema.ValidateAndUpload(stClient, bucket, experiment, datatype, dtSchemaFile)
