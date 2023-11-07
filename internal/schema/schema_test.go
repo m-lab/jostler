@@ -84,6 +84,7 @@ func TestValidateAndUpload(t *testing.T) {
 		experiment      string
 		datatype        string
 		dtSchemaFile    string
+		uploadSchema    bool
 
 		wantErr error
 	}{
@@ -95,6 +96,7 @@ func TestValidateAndUpload(t *testing.T) {
 			experiment:      testExperiment,
 			datatype:        testDatatype,
 			dtSchemaFile:    "testdata/datatypes/non-existent.json", // this file doesn't exist
+			uploadSchema:    true,
 			wantErr:         schema.ErrReadSchema,
 		},
 		{
@@ -105,6 +107,7 @@ func TestValidateAndUpload(t *testing.T) {
 			experiment:      testExperiment,
 			datatype:        testDatatype,
 			dtSchemaFile:    "testdata/datatypes/foo1-invalid.json", // this file doesn't exist
+			uploadSchema:    true,
 			wantErr:         schema.ErrUnmarshal,
 		},
 		{
@@ -115,6 +118,7 @@ func TestValidateAndUpload(t *testing.T) {
 			experiment:      testExperiment,
 			datatype:        testDatatype,
 			dtSchemaFile:    "testdata/datatypes/foo1-valid.json",
+			uploadSchema:    true,
 			wantErr:         schema.ErrStorageClient,
 		},
 		{
@@ -125,6 +129,7 @@ func TestValidateAndUpload(t *testing.T) {
 			experiment:      testExperiment,
 			datatype:        testDatatype,
 			dtSchemaFile:    "testdata/datatypes/foo1-valid.json",
+			uploadSchema:    true,
 			wantErr:         schema.ErrUpload,
 		},
 		{
@@ -135,6 +140,7 @@ func TestValidateAndUpload(t *testing.T) {
 			experiment:      testExperiment,
 			datatype:        testDatatype,
 			dtSchemaFile:    "testdata/datatypes/foo1-valid.json",
+			uploadSchema:    true,
 			wantErr:         nil,
 		},
 		{
@@ -145,6 +151,7 @@ func TestValidateAndUpload(t *testing.T) {
 			experiment:      testExperiment,
 			datatype:        testDatatype,
 			dtSchemaFile:    "testdata/datatypes/foo1-valid.json",
+			uploadSchema:    true,
 			wantErr:         schema.ErrDownload,
 		},
 		{
@@ -155,6 +162,7 @@ func TestValidateAndUpload(t *testing.T) {
 			experiment:      testExperiment,
 			datatype:        testDatatype,
 			dtSchemaFile:    "testdata/datatypes/foo1-valid.json",
+			uploadSchema:    true,
 			wantErr:         nil,
 		},
 		{
@@ -165,6 +173,7 @@ func TestValidateAndUpload(t *testing.T) {
 			experiment:      testExperiment,
 			datatype:        testDatatype,
 			dtSchemaFile:    "testdata/datatypes/foo1-valid-superset.json",
+			uploadSchema:    true,
 			wantErr:         nil,
 		},
 		{
@@ -175,6 +184,7 @@ func TestValidateAndUpload(t *testing.T) {
 			experiment:      testExperiment,
 			datatype:        testDatatype,
 			dtSchemaFile:    "testdata/datatypes/foo1-valid.json",
+			uploadSchema:    true,
 			wantErr:         schema.ErrOnlyInOld,
 		},
 		{
@@ -185,7 +195,19 @@ func TestValidateAndUpload(t *testing.T) {
 			experiment:      testExperiment,
 			datatype:        testDatatype,
 			dtSchemaFile:    "testdata/datatypes/foo1-incompatible.json",
+			uploadSchema:    true,
 			wantErr:         schema.ErrTypeMismatch,
+		},
+		{
+			name:            "scenario 5 no-upload - old exists, new is backward-compatible - should succeed",
+			tblSchemaFile:   "autoload/v1/tables/jostler/foo1.table.json",
+			rmTblSchemaFile: false,
+			bucket:          "newclient,download",
+			experiment:      testExperiment,
+			datatype:        testDatatype,
+			dtSchemaFile:    "testdata/datatypes/foo1-valid.json",
+			uploadSchema:    false,
+			wantErr:         nil,
 		},
 	}
 
@@ -212,7 +234,7 @@ func TestValidateAndUpload(t *testing.T) {
 			}
 			t.Fatalf("testhelper.NewClient() = %v, wanted nil", err)
 		}
-		gotErr := schema.ValidateAndUpload(stClient, test.bucket, test.experiment, test.datatype, test.dtSchemaFile, true)
+		gotErr := schema.ValidateAndUpload(stClient, test.bucket, test.experiment, test.datatype, test.dtSchemaFile, test.uploadSchema)
 		t.Logf("%s>>> gotErr=%v%s\n\n", testhelper.ANSIPurple, gotErr, testhelper.ANSIEnd)
 		if gotErr == nil && test.wantErr == nil {
 			continue
