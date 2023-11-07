@@ -155,7 +155,7 @@ func TestValidateAndUpload(t *testing.T) {
 			experiment:      testExperiment,
 			datatype:        testDatatype,
 			dtSchemaFile:    "testdata/datatypes/foo1-valid.json",
-			wantErr:         schema.ErrSchemaMatch,
+			wantErr:         nil,
 		},
 		{
 			name:            "scenario 3 - old exists, new is a superset, should upload",
@@ -212,7 +212,7 @@ func TestValidateAndUpload(t *testing.T) {
 			}
 			t.Fatalf("testhelper.NewClient() = %v, wanted nil", err)
 		}
-		gotErr := schema.ValidateAndUpload(stClient, test.bucket, test.experiment, test.datatype, test.dtSchemaFile)
+		gotErr := schema.ValidateAndUpload(stClient, test.bucket, test.experiment, test.datatype, test.dtSchemaFile, true)
 		t.Logf("%s>>> gotErr=%v%s\n\n", testhelper.ANSIPurple, gotErr, testhelper.ANSIEnd)
 		if gotErr == nil && test.wantErr == nil {
 			continue
