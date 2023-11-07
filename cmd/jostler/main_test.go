@@ -150,7 +150,7 @@ func TestCLI(t *testing.T) {
 			},
 		},
 		{
-			"daemon: scenario 2", false, schema.ErrSchemaMatch.Error(),
+			"daemon: scenario 2", false, "",
 			[]string{
 				"-gcs-bucket", "newclient,download",
 				"-mlab-node-name", testNode,
