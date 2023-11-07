@@ -117,7 +117,7 @@ func CreateTableSchemaJSON(datatype, dtSchemaFile string) ([]byte, error) {
 // compatibale. If the new table schema is a superset of the previous one, it
 // will be uploaded to GCS.
 func ValidateAndUpload(gcsClient DownloaderUploader, bucket, experiment, datatype, dtSchemaFile string, uploadSchema bool) error {
-	err := Validate(gcsClient, bucket, experiment, datatype, dtSchemaFile)
+	err := validate(gcsClient, bucket, experiment, datatype, dtSchemaFile)
 	if uploadSchema && (errors.Is(err, ErrSchemaNotFound) || errors.Is(err, ErrNewFields)) {
 		// For autoload/v1 conventions and authoritative autoload/v2 configurations.
 		// Upload when the schema is not found or there are new local fields in the schema.
@@ -134,10 +134,10 @@ func ValidateAndUpload(gcsClient DownloaderUploader, bucket, experiment, datatyp
 	return err
 }
 
-// Validate checks the given table schema against the previous table schema for
+// validate checks the given table schema against the previous table schema for
 // various differences and returns a SchemaStatus corresponding to the
 // difference.
-func Validate(gcsClient DownloaderUploader, bucket, experiment, datatype, dtSchemaFile string) error {
+func validate(gcsClient DownloaderUploader, bucket, experiment, datatype, dtSchemaFile string) error {
 	if err := ValidateSchemaFile(dtSchemaFile); err != nil {
 		return fmt.Errorf("%v: %w", err, ErrInvalidSchema)
 	}
