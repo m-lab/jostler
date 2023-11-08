@@ -19,4 +19,4 @@ script:
 after_success:
 # Coveralls
 # Upload coverage information for unit tests.
-- $HOME/gopath/bin/goveralls -coverprofile=_coverage.cov -service=travis-ci
+- $HOME/gopath/bin/goveralls -coverprofile=_coverage.cov -service=travis-pro
