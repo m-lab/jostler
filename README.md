@@ -337,3 +337,4 @@ for upload.  This also means that files that are open but are not modified
 for more than the configurable duration will be uploaded _prematurely_.
 This is why it is required that new measurements should not keep a file
 open without writing to it for more than a few minutes.
+
