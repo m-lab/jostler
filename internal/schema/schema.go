@@ -116,36 +116,28 @@ func CreateTableSchemaJSON(datatype, dtSchemaFile string) ([]byte, error) {
 // schema for the given datatype and returns an error if they are not
 // compatibale. If the new table schema is a superset of the previous one, it
 // will be uploaded to GCS.
-func ValidateAndUpload(gcsClient DownloaderUploader, bucket, experiment, datatype, dtSchemaFile string) error {
-	err := Validate(gcsClient, bucket, experiment, datatype, dtSchemaFile)
-
-	switch {
-	// Upload.
-	case errors.Is(err, ErrSchemaNotFound):
-		fallthrough
-	case errors.Is(err, ErrNewFields):
-		return uploadTableSchema(gcsClient, bucket, experiment, datatype, dtSchemaFile)
-
-	// Do not upload.
-	case errors.Is(err, ErrOnlyInOld):
-		fallthrough
-	case errors.Is(err, ErrInvalidSchema):
-		fallthrough
-	case errors.Is(err, ErrCompare):
-		fallthrough
-	case errors.Is(err, ErrTypeMismatch):
-		fallthrough
-	case errors.Is(err, ErrSchemaMatch):
-		return err
-	default:
-		panic(fmt.Sprintf("unknown schema status: %v", err))
+func ValidateAndUpload(gcsClient DownloaderUploader, bucket, experiment, datatype, dtSchemaFile string, uploadSchema bool) error {
+	err := validate(gcsClient, bucket, experiment, datatype, dtSchemaFile)
+	if uploadSchema && (errors.Is(err, ErrSchemaNotFound) || errors.Is(err, ErrNewFields)) {
+		// For autoload/v1 conventions and authoritative autoload/v2 configurations.
+		// Upload when the schema is not found or there are new local fields in the schema.
+		err = uploadTableSchema(gcsClient, bucket, experiment, datatype, dtSchemaFile)
+	} else if !uploadSchema && errors.Is(err, ErrOnlyInOld) {
+		// For autoload/v2 conventions without local schema uploads.
+		// Allow backward compatible local schemas.
+		err = nil
 	}
+	// In all cases, allow matching schemas.
+	if errors.Is(err, ErrSchemaMatch) {
+		err = nil
+	}
+	return err
 }
 
-// Validate checks the given table schema against the previous table schema for
+// validate checks the given table schema against the previous table schema for
 // various differences and returns a SchemaStatus corresponding to the
 // difference.
-func Validate(gcsClient DownloaderUploader, bucket, experiment, datatype, dtSchemaFile string) error {
+func validate(gcsClient DownloaderUploader, bucket, experiment, datatype, dtSchemaFile string) error {
 	if err := ValidateSchemaFile(dtSchemaFile); err != nil {
 		return fmt.Errorf("%v: %w", err, ErrInvalidSchema)
 	}
@@ -234,7 +226,7 @@ func tblSchemaPath(experiment, datatype string) string {
 }
 
 // uploadTableSchema creates a table schema for the given datatype schema
-// and uploads it to GCS.
+// and uploads it to GCS. uploadTableSchema does not validate the schema.
 func uploadTableSchema(gcsClient DownloaderUploader, bucket, experiment, datatype, dtSchemaFile string) error {
 	ctx := context.Background()
 	tblSchemaJSON, err := CreateTableSchemaJSON(datatype, dtSchemaFile)

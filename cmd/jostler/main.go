@@ -105,20 +105,7 @@ func daemonMode() error {
 	// ones are a superset of the previous table.
 	for _, datatype := range datatypes {
 		dtSchemaFile := schema.PathForDatatype(datatype, dtSchemaFiles)
-		// TODO(soltesz): simplify the supporting logic for the validate & upload cases.
-		if uploadSchema {
-			// For autoload/v1 conventions and authoritative autoload/v2 configurations.
-			err = schema.ValidateAndUpload(stClient, bucket, experiment, datatype, dtSchemaFile)
-		} else {
-			// For autoload/v2 conventions without local schema uploads.
-			xerr := schema.Validate(stClient, bucket, experiment, datatype, dtSchemaFile)
-			// Allow backward compatible local schemas. NOTE: local schemas that are new will cause an error.
-			if errors.Is(xerr, schema.ErrOnlyInOld) || errors.Is(xerr, schema.ErrSchemaMatch) {
-				err = nil
-			} else {
-				err = xerr
-			}
-		}
+		err := schema.ValidateAndUpload(stClient, bucket, experiment, datatype, dtSchemaFile, uploadSchema)
 		if err != nil {
 			mainCancel()
 			return fmt.Errorf("%v: %w", datatype, err)
