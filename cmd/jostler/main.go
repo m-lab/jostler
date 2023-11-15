@@ -23,8 +23,8 @@ import (
 )
 
 var (
-	version   string // set at build time from git describe --tags
-	gitCommit string // set at build time from git log -1 --format=%h
+	Version   string // set at build time from git describe --tags
+	GitCommit string // set at build time from git log -1 --format=%h
 
 	errWrite = errors.New("failed to write file")
 
