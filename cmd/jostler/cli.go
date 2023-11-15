@@ -5,6 +5,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"log"
 	"regexp"
 	"strings"
 	"time"
@@ -118,6 +119,7 @@ func parseAndValidateCLI() error {
 	// Enable verbose mode in all packages as soon as the flags are
 	// parsed because they may be called for during argument validation.
 	if verbose {
+		log.Println(GitCommit, Version)
 		gcs.Verbose(testhelper.VLogf)
 		schema.Verbose(testhelper.VLogf)
 		watchdir.Verbose(testhelper.VLogf)
