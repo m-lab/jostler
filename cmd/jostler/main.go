@@ -197,8 +197,8 @@ func startUploader(mainCtx context.Context, mainCancel context.CancelFunc, statu
 		BaseID:    fmt.Sprintf("%s-%s-%s-%s", datatype, nameParts.Machine, nameParts.Site, experiment),
 	}
 	bundleConf := uploadbundle.BundleConfig{
-		Version:   version,
-		GitCommit: gitCommit,
+		Version:   Version,
+		GitCommit: GitCommit,
 		Datatype:  datatype,
 		SpoolDir:  filepath.Join(localDataDir, experiment, datatype),
 		SizeMax:   bundleSizeMax,
