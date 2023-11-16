@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/m-lab/go/prometheusx"
 	"github.com/m-lab/jostler/internal/schema"
 	"github.com/m-lab/jostler/internal/testhelper"
 )
@@ -30,6 +31,9 @@ var (
 
 // TestCLI tests non-interactive CLI invocations.
 func TestCLI(t *testing.T) {
+	// Prevent "bind: address already in use" errors during tests.
+	addr := ":0"
+	prometheusx.ListenAddress = &addr
 	tests := []struct {
 		name            string   // name of the test
 		rmTblSchemaFile bool     // if true, remove table schema file before running the test
@@ -142,6 +146,7 @@ func TestCLI(t *testing.T) {
 				"-experiment", testExperiment,
 				"-datatype", "foo1",
 				"-datatype-schema-file", "foo1:testdata/datatypes/foo1-valid.json",
+				"-gcs-data-dir=testdata/autoload/v1",
 			},
 		},
 		{
@@ -153,6 +158,7 @@ func TestCLI(t *testing.T) {
 				"-experiment", testExperiment,
 				"-datatype", "foo1",
 				"-datatype-schema-file", "foo1:testdata/datatypes/foo1-valid.json",
+				"-gcs-data-dir=testdata/autoload/v1",
 			},
 		},
 		{
@@ -164,6 +170,7 @@ func TestCLI(t *testing.T) {
 				"-experiment", testExperiment,
 				"-datatype", "foo1",
 				"-datatype-schema-file", "foo1:testdata/datatypes/foo1-valid-superset.json",
+				"-gcs-data-dir=testdata/autoload/v1",
 			},
 		},
 		{
@@ -175,6 +182,117 @@ func TestCLI(t *testing.T) {
 				"-experiment", testExperiment,
 				"-datatype", "foo1",
 				"-datatype-schema-file", "foo1:testdata/datatypes/foo1-valid.json",
+				"-gcs-data-dir=testdata/autoload/v1",
+			},
+		},
+		// autoload/v2 flag and configuration testing.
+		{
+			"invalid: scenario 1", false, errAutoloadOrgInvalid.Error(),
+			[]string{
+				"-gcs-bucket", "newclient,download",
+				"-mlab-node-name", testNode,
+				"-local-data-dir", testLocalDataDir,
+				"-experiment", testExperiment,
+				"-datatype", "foo1",
+				"-datatype-schema-file", "foo1:testdata/datatypes/foo1-valid.json",
+				"-gcs-data-dir=testdata/autoload/v1",
+				"-organization=bar1", // Should not specify organization for an autoload/v1 run.
+			},
+		},
+		{
+			"invalid: scenario 2", true, errAutoloadOrgRequired.Error(),
+			[]string{
+				"-gcs-bucket", "newclient,download",
+				"-mlab-node-name", testNode,
+				"-local-data-dir", testLocalDataDir,
+				"-experiment", testExperiment,
+				"-datatype", "foo1",
+				"-datatype-schema-file", "foo1:testdata/datatypes/foo1-valid.json",
+				"-gcs-data-dir=testdata/autoload/v2", // any value other than autoload/v1.
+				"-organization=",                     // Organization is required.
+			},
+		},
+		{
+			"invalid: scenario 3", true, errOrgName.Error(),
+			[]string{
+				"-gcs-bucket", "newclient,download",
+				"-mlab-node-name", testNode,
+				"-local-data-dir", testLocalDataDir,
+				"-experiment", testExperiment,
+				"-datatype", "foo1",
+				"-datatype-schema-file", "foo1:testdata/datatypes/foo1-valid.json",
+				"-gcs-data-dir=testdata/autoload/v2", // any value other than autoload/v1.
+				"-organization=INVALIDNAME",          // Organization is invalid.
+			},
+		},
+		{
+			"valid: scenario 4 - upload authoritative new schema", true, "",
+			[]string{
+				"-gcs-bucket", "newclient,download,upload",
+				"-mlab-node-name", testNode,
+				"-local-data-dir", testLocalDataDir,
+				"-experiment", testExperiment,
+				"-datatype", "foo1",
+				"-datatype-schema-file", "foo1:testdata/datatypes/foo1-valid.json",
+				"-gcs-data-dir=testdata/autoload/v2",
+				"-organization=foo1org",
+				"-upload-schema=true", // allow uploads.
+			},
+		},
+		{
+			"valid: scenario 4 - allow matching schema without upload", false, "",
+			[]string{
+				"-gcs-bucket", "newclient,download,upload",
+				"-mlab-node-name", testNode,
+				"-local-data-dir", testLocalDataDir,
+				"-experiment", testExperiment,
+				"-datatype", "foo1",
+				"-datatype-schema-file", "foo1:testdata/datatypes/foo1-valid.json",
+				"-gcs-data-dir=testdata/autoload/v2",
+				"-organization=foo1org",
+				"-upload-schema=false",
+			},
+		},
+		{
+			"invalid: scenario 4 - cannot upload new v2 schema", false, schema.ErrNewFields.Error(),
+			[]string{
+				"-gcs-bucket", "newclient,download",
+				"-mlab-node-name", testNode,
+				"-local-data-dir", testLocalDataDir,
+				"-experiment", testExperiment,
+				"-datatype", "foo1",
+				"-datatype-schema-file", "foo1:testdata/datatypes/foo1-valid-superset.json", // superset schema.
+				"-gcs-data-dir=testdata/autoload/v2",
+				"-organization=foo1org",
+				"-upload-schema=false",
+			},
+		},
+		{
+			"valid: scenario 5 - upload newer authoritative new schema", true, "",
+			[]string{
+				"-gcs-bucket", "newclient,download,upload",
+				"-mlab-node-name", testNode,
+				"-local-data-dir", testLocalDataDir,
+				"-experiment", testExperiment,
+				"-datatype", "foo1",
+				"-datatype-schema-file", "foo1:testdata/datatypes/foo1-valid-superset.json",
+				"-gcs-data-dir=testdata/autoload/v2",
+				"-organization=foo1org",
+				"-upload-schema=true", // allow uploads.
+			},
+		},
+		{
+			"valid: scenario 5 - allow backward compatible schema", false, "",
+			[]string{
+				"-gcs-bucket", "newclient,download,upload",
+				"-mlab-node-name", testNode,
+				"-local-data-dir", testLocalDataDir,
+				"-experiment", testExperiment,
+				"-datatype", "foo1",
+				"-datatype-schema-file", "foo1:testdata/datatypes/foo1-valid.json",
+				"-gcs-data-dir=testdata/autoload/v2",
+				"-organization=foo1org",
+				"-upload-schema=false",
 			},
 		},
 	}
@@ -183,8 +301,10 @@ func TestCLI(t *testing.T) {
 		os.RemoveAll("testdata/autoload")
 	}()
 	for i, test := range tests {
+		t.Logf("name: %s", test.name)
 		if test.rmTblSchemaFile {
 			os.RemoveAll("testdata/autoload/v1/tables/jostler/foo1.table.json")
+			os.RemoveAll("testdata/autoload/v2/tables/jostler/foo1.table.json")
 		}
 		var s string
 		if test.wantErrStr == "" {
@@ -196,7 +316,7 @@ func TestCLI(t *testing.T) {
 		args := test.args
 		// Use a local disk storage implementation that mimics downloads
 		// from and uploads to GCS.
-		args = append(args, []string{"-gcs-local-disk", "-gcs-data-dir", "testdata/autoload/v1"}...)
+		args = append(args, []string{"-gcs-local-disk"}...)
 		if testing.Verbose() {
 			args = append(args, "-verbose")
 		}

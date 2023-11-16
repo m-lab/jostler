@@ -1,4 +1,4 @@
-FROM golang:1.19 AS build
+FROM golang:1.20 AS build
 # VERSION should be specified via the --build-arg flag as a branch,
 # a tag, or a short git commit.
 ARG VERSION=unspecified
@@ -9,7 +9,7 @@ ENV CGO_ENABLED 0
 RUN go get -v ./...
 RUN go install -v \
                -ldflags "-X github.com/m-lab/go/prometheusx.GitShortCommit=$(git log -1 --format=%h) \
-               -X main.Version=$VERSION \
+               -X main.Version=$( git describe --exact-match --tags `git log -n1 --pretty='%h'` 2> /dev/null || git rev-parse --abbrev-ref HEAD ) \
                -X main.GitCommit=$(git log -1 --format=%H)" \
       ./cmd/jostler
 

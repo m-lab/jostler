@@ -1,3 +1,5 @@
+[![Coverage Status](https://coveralls.io/repos/github/m-lab/jostler/badge.svg?branch=main)](https://coveralls.io/github/m-lab/jostler?branch=main)
+
 # Jostler Design
 
 ## 1. Background

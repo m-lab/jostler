@@ -23,8 +23,8 @@ import (
 )
 
 var (
-	version   string // set at build time from git describe --tags
-	gitCommit string // set at build time from git log -1 --format=%h
+	Version   string // set at build time from git describe --tags
+	GitCommit string // set at build time from git log -1 --format=%h
 
 	errWrite = errors.New("failed to write file")
 
@@ -105,7 +105,8 @@ func daemonMode() error {
 	// ones are a superset of the previous table.
 	for _, datatype := range datatypes {
 		dtSchemaFile := schema.PathForDatatype(datatype, dtSchemaFiles)
-		if err = schema.ValidateAndUpload(stClient, bucket, experiment, datatype, dtSchemaFile); err != nil {
+		err := schema.ValidateAndUpload(stClient, bucket, experiment, datatype, dtSchemaFile, uploadSchema)
+		if err != nil {
 			mainCancel()
 			return fmt.Errorf("%v: %w", datatype, err)
 		}
@@ -191,13 +192,13 @@ func startUploader(mainCtx context.Context, mainCancel context.CancelFunc, statu
 	gcsConf := uploadbundle.GCSConfig{
 		GCSClient: stClient,
 		Bucket:    bucket,
-		DataDir:   filepath.Join(gcsDataDir, experiment, datatype),
-		IndexDir:  filepath.Join(gcsDataDir, experiment, "index1"),
+		DataDir:   filepath.Join(gcsDataDir, organization, experiment, datatype),
+		IndexDir:  filepath.Join(gcsDataDir, organization, experiment, "index1"),
 		BaseID:    fmt.Sprintf("%s-%s-%s-%s", datatype, nameParts.Machine, nameParts.Site, experiment),
 	}
 	bundleConf := uploadbundle.BundleConfig{
-		Version:   version,
-		GitCommit: gitCommit,
+		Version:   Version,
+		GitCommit: GitCommit,
 		Datatype:  datatype,
 		SpoolDir:  filepath.Join(localDataDir, experiment, datatype),
 		SizeMax:   bundleSizeMax,

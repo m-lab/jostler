@@ -5,6 +5,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
@@ -22,6 +23,8 @@ var (
 	bucket       string
 	gcsDataDir   string
 	mlabNodeName string
+	organization string
+	uploadSchema bool = true
 
 	// Flags related to bundles.
 	dtSchemaFiles flagx.StringArray
@@ -43,15 +46,21 @@ var (
 	testInterval time.Duration
 
 	// Errors related to command line parsing and validation.
-	errExtraArgs      = errors.New("extra arguments on the command line")
-	errNoNode         = errors.New("must specify mlab-node-name")
-	errNoBucket       = errors.New("must specify GCS bucket")
-	errNoExperiment   = errors.New("must specify experiment")
-	errNoDatatype     = errors.New("must specify at least one datatype")
-	errSchemaNums     = errors.New("more schema files than datatypes")
-	errSchemaNoMatch  = errors.New("does not match any specified datatypes")
-	errSchemaFilename = errors.New("is not in <datatype>:<pathname> format")
-	errValidate       = errors.New("failed to validate")
+	errExtraArgs           = errors.New("extra arguments on the command line")
+	errNoNode              = errors.New("must specify mlab-node-name")
+	errNoBucket            = errors.New("must specify GCS bucket")
+	errNoExperiment        = errors.New("must specify experiment")
+	errNoDatatype          = errors.New("must specify at least one datatype")
+	errSchemaNums          = errors.New("more schema files than datatypes")
+	errSchemaNoMatch       = errors.New("does not match any specified datatypes")
+	errSchemaFilename      = errors.New("is not in <datatype>:<pathname> format")
+	errValidate            = errors.New("failed to validate")
+	errAutoloadOrgRequired = errors.New("organization is required if not using autoload/v1 conventions")
+	errAutoloadOrgInvalid  = errors.New("organization is not valid for autoload/v1 conventions")
+	errOrgName             = errors.New("organization name must only contain lower case letters and numbers")
+
+	// orgNameRegex matches valid organization names (a-z0-9, no spaces or capitals).
+	orgNameRegex = regexp.MustCompile(`^[a-z0-9]+$`)
 )
 
 func initFlags() {
@@ -59,6 +68,8 @@ func initFlags() {
 	flag.StringVar(&bucket, "gcs-bucket", "", "required - GCS bucket name")
 	flag.StringVar(&gcsDataDir, "gcs-data-dir", "autoload/v1", "home directory in GCS bucket under which bundles will be uploaded")
 	flag.StringVar(&mlabNodeName, "mlab-node-name", "", "required - node name specified directly or via MLAB_NODE_NAME env variable")
+	flag.StringVar(&organization, "organization", "", "the organization name; required for autoload/v2 conventions")
+	flag.BoolVar(&uploadSchema, "upload-schema", true, "upload the local table schema if necessary")
 
 	// Flags related to bundles.
 	dtSchemaFiles = flagx.StringArray{}
@@ -141,6 +152,15 @@ func parseAndValidateCLI() error {
 	}
 	if err := validateSchemaFlags(); err != nil {
 		return err
+	}
+	if !strings.Contains(gcsDataDir, "autoload/v1") && organization == "" {
+		return errAutoloadOrgRequired
+	}
+	if strings.Contains(gcsDataDir, "autoload/v1") && organization != "" {
+		return errAutoloadOrgInvalid
+	}
+	if organization != "" && !orgNameRegex.MatchString(organization) {
+		return errOrgName
 	}
 	return validateSchemaFiles()
 }
