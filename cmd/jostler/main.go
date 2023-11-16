@@ -23,8 +23,8 @@ import (
 )
 
 var (
-	version   string // set at build time from git describe --tags
-	gitCommit string // set at build time from git log -1 --format=%h
+	Version   string // set at build time from git describe --tags
+	GitCommit string // set at build time from git log -1 --format=%h
 
 	errWrite = errors.New("failed to write file")
 
@@ -197,8 +197,8 @@ func startUploader(mainCtx context.Context, mainCancel context.CancelFunc, statu
 		BaseID:    fmt.Sprintf("%s-%s-%s-%s", datatype, nameParts.Machine, nameParts.Site, experiment),
 	}
 	bundleConf := uploadbundle.BundleConfig{
-		Version:   version,
-		GitCommit: gitCommit,
+		Version:   Version,
+		GitCommit: GitCommit,
 		Datatype:  datatype,
 		SpoolDir:  filepath.Join(localDataDir, experiment, datatype),
 		SizeMax:   bundleSizeMax,
