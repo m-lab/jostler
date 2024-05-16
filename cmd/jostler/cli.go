@@ -130,7 +130,7 @@ func parseAndValidateCLI() error {
 		extensions = []string{".json"}
 	}
 	if !local {
-		if mlabNodeNameFile.String() != "" && mlabNodeName == "" {
+		if mlabNodeNameFile.String() != "" {
 			mlabNodeName = mlabNodeNameFile.String()
 		}
 		if mlabNodeName == "" {
