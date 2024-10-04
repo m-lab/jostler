@@ -47,7 +47,7 @@ var (
 
 	// Errors related to command line parsing and validation.
 	errExtraArgs           = errors.New("extra arguments on the command line")
-	errNoNode              = errors.New("must specify mlab-node-name or mlab-node-name-file")
+	errNoNode              = errors.New("must specify mlab-node-name")
 	errNoBucket            = errors.New("must specify GCS bucket")
 	errNoExperiment        = errors.New("must specify experiment")
 	errNoDatatype          = errors.New("must specify at least one datatype")
