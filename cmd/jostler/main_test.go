@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/m-lab/go/flagx"
 	"github.com/m-lab/go/prometheusx"
 	"github.com/m-lab/jostler/internal/schema"
 	"github.com/m-lab/jostler/internal/testhelper"
@@ -369,6 +370,9 @@ func callMain(t *testing.T, osArgs []string, wantErrStr string) {
 		os.Args = saveOSArgs
 		fatal = saveFatal
 	}()
+	// Reset flags with global state.
+	mlabNodeName = flagx.StringFile{}
+
 	os.Args = []string{"jostler-test", "-test-interval", "2s"}
 	os.Args = append(os.Args, osArgs...)
 	fatal = log.Panic
