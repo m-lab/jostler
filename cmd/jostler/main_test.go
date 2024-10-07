@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/m-lab/go/flagx"
 	"github.com/m-lab/go/prometheusx"
 	"github.com/m-lab/jostler/internal/schema"
 	"github.com/m-lab/jostler/internal/testhelper"
@@ -17,6 +18,7 @@ import (
 
 const (
 	testNode         = "mlab1-lga01.mlab-sandbox.measurement-lab.org"
+	testNodeFile     = "@testdata/hostname"
 	testLocalDataDir = "testdata"    // typically /var/spool
 	testBucket       = "disk-bucket" // typically pusher-mlab-sandbox
 	testExperiment   = "jostler"
@@ -295,6 +297,20 @@ func TestCLI(t *testing.T) {
 				"-upload-schema=false",
 			},
 		},
+		{
+			"valid: scenario 5 - with hostname from file", false, "",
+			[]string{
+				"-gcs-bucket", "newclient,download,upload",
+				"-mlab-node-name", testNodeFile,
+				"-local-data-dir", testLocalDataDir,
+				"-experiment", testExperiment,
+				"-datatype", "foo1",
+				"-datatype-schema-file", "foo1:testdata/datatypes/foo1-valid.json",
+				"-gcs-data-dir=testdata/autoload/v2",
+				"-organization=foo1org",
+				"-upload-schema=false",
+			},
+		},
 	}
 	defer func() {
 		os.RemoveAll("foo1.json")
@@ -354,6 +370,9 @@ func callMain(t *testing.T, osArgs []string, wantErrStr string) {
 		os.Args = saveOSArgs
 		fatal = saveFatal
 	}()
+	// Reset flags with global state.
+	mlabNodeName = flagx.StringFile{}
+
 	os.Args = []string{"jostler-test", "-test-interval", "2s"}
 	os.Args = append(os.Args, osArgs...)
 	fatal = log.Panic

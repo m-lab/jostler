@@ -7,7 +7,7 @@ require (
 	cloud.google.com/go/bigquery v1.60.0
 	cloud.google.com/go/storage v1.41.0
 	github.com/googleapis/google-cloud-go-testing v0.0.0-20191008195207-8e1d251e947d
-	github.com/m-lab/go v0.1.73
+	github.com/m-lab/go v0.1.75
 	github.com/prometheus/client_golang v1.11.1
 	github.com/rjeczalik/notify v0.9.2
 	google.golang.org/api v0.178.0

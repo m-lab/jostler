@@ -20,12 +20,11 @@ import (
 
 var (
 	// Flags related to GCS.
-	bucket           string
-	gcsDataDir       string
-	mlabNodeName     string
-	mlabNodeNameFile flagx.FileBytes
-	organization     string
-	uploadSchema     bool = true
+	bucket       string
+	gcsDataDir   string
+	mlabNodeName flagx.StringFile
+	organization string
+	uploadSchema bool = true
 
 	// Flags related to bundles.
 	dtSchemaFiles flagx.StringArray
@@ -48,7 +47,7 @@ var (
 
 	// Errors related to command line parsing and validation.
 	errExtraArgs           = errors.New("extra arguments on the command line")
-	errNoNode              = errors.New("must specify mlab-node-name or mlab-node-name-file")
+	errNoNode              = errors.New("must specify mlab-node-name")
 	errNoBucket            = errors.New("must specify GCS bucket")
 	errNoExperiment        = errors.New("must specify experiment")
 	errNoDatatype          = errors.New("must specify at least one datatype")
@@ -68,8 +67,7 @@ func initFlags() {
 	// Flags related to GCS.
 	flag.StringVar(&bucket, "gcs-bucket", "", "required - GCS bucket name")
 	flag.StringVar(&gcsDataDir, "gcs-data-dir", "autoload/v1", "home directory in GCS bucket under which bundles will be uploaded")
-	flag.StringVar(&mlabNodeName, "mlab-node-name", "", "required - node name specified directly or via MLAB_NODE_NAME env variable")
-	flag.Var(&mlabNodeNameFile, "mlab-node-name-file", "node name specified via a file")
+	flag.Var(&mlabNodeName, "mlab-node-name", "required - node name, specified directly or via @file or via MLAB_NODE_NAME env variable")
 	flag.StringVar(&organization, "organization", "", "the organization name; required for autoload/v2 conventions")
 	flag.BoolVar(&uploadSchema, "upload-schema", true, "upload the local table schema if necessary")
 
@@ -130,10 +128,7 @@ func parseAndValidateCLI() error {
 		extensions = []string{".json"}
 	}
 	if !local {
-		if mlabNodeNameFile.String() != "" {
-			mlabNodeName = mlabNodeNameFile.String()
-		}
-		if mlabNodeName == "" {
+		if mlabNodeName.Value == "" {
 			return errNoNode
 		}
 		if bucket == "" {
@@ -143,12 +138,12 @@ func parseAndValidateCLI() error {
 	if experiment == "" {
 		return errNoExperiment
 	}
-	if mlabNodeName != "" {
+	if mlabNodeName.Value != "" {
 		// Parse the M-Lab hostname (which should be in one of the
 		// following formats) into its constituent parts.
 		// v1: <machine>.<site>.measurement-lab.org
 		// v2: <machine>-<site>.<project>.measurement-lab.org
-		if _, err := host.Parse(mlabNodeName); err != nil {
+		if _, err := host.Parse(mlabNodeName.Value); err != nil {
 			return fmt.Errorf("failed to parse hostname: %w", err)
 		}
 	}

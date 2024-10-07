@@ -172,7 +172,7 @@ func startWatcher(mainCtx context.Context, mainCancel context.CancelFunc, status
 // startUploader start a bundle uploader goroutine that bundles
 // individual JSON files into JSONL bundle and uploads it to GCS.
 func startUploader(mainCtx context.Context, mainCancel context.CancelFunc, status chan<- error, datatype string, wdClient *watchdir.WatchDir) (*uploadbundle.UploadBundle, error) {
-	nameParts, err := host.Parse(mlabNodeName)
+	nameParts, err := host.Parse(mlabNodeName.Value)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse hostname: %w", err)
 	}
