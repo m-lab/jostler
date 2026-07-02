@@ -13,6 +13,7 @@ import (
 
 	"cloud.google.com/go/bigquery"
 	"cloud.google.com/go/storage"
+	"github.com/m-lab/go/cloud/bqx"
 	"github.com/m-lab/jostler/api"
 )
 
@@ -254,7 +255,10 @@ func createTable(datatype, dtSchemaFile string) (bigquery.Schema, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to infer schema for %v: %w", datatype, err)
 	}
-	return replaceField("raw", stdColsSchema, dtSchema), nil
+	// All fields must be NULLABLE: BigQuery rejects schema updates that
+	// change a field's mode from NULLABLE to REQUIRED, so a REQUIRED field
+	// would make the uploaded table schema inapplicable to existing tables.
+	return bqx.RemoveRequired(replaceField("raw", stdColsSchema, dtSchema)), nil
 }
 
 // allFields returns a map of all fields in the given schema.  The key
