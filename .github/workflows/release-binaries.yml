@@ -1,0 +1,123 @@
+# Build the official jostler binaries and attach them to GitHub Releases.
+#
+# Publishing a release builds jostler for linux/amd64 and linux/arm64
+# (natively, on ubuntu-24.04-arm runners for the latter) and uploads the
+# binaries to that release, together with a checksums.txt:
+#
+#   jostler_<tag>_linux_amd64
+#   jostler_<tag>_linux_arm64
+#   checksums.txt
+#
+# The binaries are pure Go, statically linked (CGO_ENABLED=0), and stripped
+# (-s -w); they carry the same version stamps as the container image.
+#
+# To attach binaries to a release that predates this workflow, dispatch it
+# with that release's tag; the workflow from the default branch then builds
+# the tagged sources:
+#
+#   gh workflow run release-binaries.yml -f tag=v1.1.4
+#
+# Pull requests only build, so changes to the build are checked before they
+# reach a release; nothing is uploaded.
+name: release-binaries
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Tag of an existing release to build and upload binaries for
+        required: true
+        type: string
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  # Empty on pull requests: the build then stamps `git describe` output and
+  # the publish job does not run.
+  TAG: ${{ inputs.tag || github.event.release.tag_name }}
+
+jobs:
+  build:
+    name: build (${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            arch: amd64
+          - runner: ubuntu-24.04-arm
+            arch: arm64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.TAG || github.sha }}
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version: stable
+
+      - name: Build
+        env:
+          ARCH: ${{ matrix.arch }}
+        run: |
+          version="${TAG:-$(git describe --tags --always)}"
+          echo "VERSION=${version}" >> "${GITHUB_ENV}"
+          ldflags="-s -w"
+          ldflags+=" -X github.com/m-lab/go/prometheusx.GitShortCommit=$(git log -1 --format=%h)"
+          ldflags+=" -X main.Version=${version}"
+          ldflags+=" -X main.GitCommit=$(git log -1 --format=%H)"
+          mkdir -p dist
+          CGO_ENABLED=0 go build -trimpath -ldflags "${ldflags}" \
+            -o "dist/jostler_${version}_linux_${ARCH}" ./cmd/jostler
+
+      # go version -m omits -ldflags under -trimpath, so look for the version
+      # stamp in the binary itself.
+      - name: Check binaries
+        run: |
+          for bin in dist/*; do
+            info="$(file -L "${bin}")"
+            echo "${info}"
+            case "${info}" in
+              *"statically linked"*) ;;
+              *) echo "ERROR: ${bin} is not statically linked" >&2; exit 1 ;;
+            esac
+            grep -qaF -- "${VERSION}" "${bin}" || {
+              echo "ERROR: ${bin} lacks the ${VERSION} version stamp" >&2
+              exit 1
+            }
+            go version -m "${bin}"
+          done
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: binaries-${{ matrix.arch }}
+          path: dist/
+          if-no-files-found: error
+
+  publish:
+    if: github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: binaries-*
+          merge-multiple: true
+          path: dist
+
+      - name: Upload to the ${{ env.TAG }} release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd dist
+          sha256sum * > ../checksums.txt
+          mv ../checksums.txt .
+          cat checksums.txt
+          gh release upload "${TAG}" * --clobber --repo "${GITHUB_REPOSITORY}"
