@@ -16,9 +16,6 @@
 # the tagged sources:
 #
 #   gh workflow run release-binaries.yml -f tag=v1.1.4
-#
-# Pull requests only build, so changes to the build are checked before they
-# reach a release; nothing is uploaded.
 name: release-binaries
 
 on:
