@@ -98,6 +98,7 @@ jobs:
           name: binaries-${{ matrix.arch }}
           path: dist/
           if-no-files-found: error
+          retention-days: 1
 
   publish:
     if: github.event_name != 'pull_request'
