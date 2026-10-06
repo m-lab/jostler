@@ -43,7 +43,7 @@ jobs:
 
       - uses: actions/setup-go@v7
         with:
-          go-version: stable
+          go-version: "1.26"
 
       # go version -m omits -ldflags under -trimpath, so the check looks for
       # the version stamp in the binary itself.
