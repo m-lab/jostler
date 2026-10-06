@@ -1,0 +1,74 @@
+# Build the official jostler binary and attach it to GitHub Releases.
+#
+# Publishing a release builds jostler for linux/amd64 and uploads it to that
+# release, together with a checksums.txt:
+#
+#   jostler_<tag>_linux_amd64
+#   checksums.txt
+#
+# The binary is pure Go, statically linked (CGO_ENABLED=0), and stripped
+# (-s -w); it carries the same version stamps as the container image.
+#
+# To attach the binary to a release that predates this workflow, dispatch it
+# with that release's tag; the workflow from the default branch then builds
+# the tagged sources:
+#
+#   gh workflow run release-binaries.yml -f tag=v1.1.4
+name: release-binaries
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Tag of an existing release to build and upload binaries for
+        required: true
+        type: string
+  pull_request:
+
+jobs:
+  release-binaries:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    env:
+      # Empty on pull requests: the build then stamps `git describe` output
+      # and nothing is uploaded.
+      TAG: ${{ inputs.tag || github.event.release.tag_name }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.tag || github.event.release.tag_name || github.sha }}
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version: stable
+
+      # go version -m omits -ldflags under -trimpath, so the check looks for
+      # the version stamp in the binary itself.
+      - name: Build
+        run: |
+          version="${TAG:-$(git describe --tags --always)}"
+          bin="dist/jostler_${version}_linux_amd64"
+          ldflags="-s -w"
+          ldflags+=" -X github.com/m-lab/go/prometheusx.GitShortCommit=$(git log -1 --format=%h)"
+          ldflags+=" -X main.Version=${version}"
+          ldflags+=" -X main.GitCommit=$(git log -1 --format=%H)"
+          CGO_ENABLED=0 go build -trimpath -ldflags "${ldflags}" -o "${bin}" ./cmd/jostler
+
+          file -L "${bin}" | grep "statically linked" ||
+            { echo "ERROR: ${bin} is not statically linked" >&2; exit 1; }
+          grep -qaF -- "${version}" "${bin}" ||
+            { echo "ERROR: ${bin} lacks the ${version} version stamp" >&2; exit 1; }
+          go version -m "${bin}"
+
+      - name: Upload to the release
+        if: github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd dist
+          sha256sum jostler_* > checksums.txt
+          cat checksums.txt
+          gh release upload "${TAG}" jostler_* checksums.txt --clobber --repo "${GITHUB_REPOSITORY}"
