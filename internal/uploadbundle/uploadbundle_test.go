@@ -10,6 +10,7 @@ import (
 
 	"github.com/m-lab/jostler/internal/testhelper"
 	"github.com/m-lab/jostler/internal/watchdir"
+	"github.com/prometheus/client_golang/prometheus/testutil"
 )
 
 func TestVerbose(t *testing.T) {
@@ -232,4 +233,114 @@ func setupClients(t *testing.T, sizeMax uint, ageMax time.Duration) (*testhelper
 		t.Fatalf("New() = %v, want nil", err)
 	}
 	return wdClient, ubClient
+}
+
+// TestBundleAndUploadOutcomes verifies what happens to the local files and
+// to the directory watcher after an upload succeeds and after it fails.
+func TestBundleAndUploadOutcomes(t *testing.T) {
+	Verbose(testhelper.VLogf)
+
+	// Make retries fast and cheap for the test.
+	savedAttempts, savedDelay := uploadAttempts, uploadRetryDelay
+	uploadAttempts, uploadRetryDelay = 2, 10*time.Millisecond
+	t.Cleanup(func() { uploadAttempts, uploadRetryDelay = savedAttempts, savedDelay })
+
+	validFile := "testdata/spool/jostler/foo1/2022/11/09/valid.json"
+	invalidFile := "testdata/spool/jostler/foo1/2022/11/09/invalid.json"
+
+	tests := []struct {
+		name         string
+		bucket       string
+		wantOnDisk   bool    // is valid.json still on disk afterwards?
+		wantErrors   float64 // expected increase in jostler_upload_errors_total
+		wantDeferred float64 // expected increase in jostler_bundles_deferred_total
+	}{
+		{
+			name:         "upload succeeds: files removed and acknowledged",
+			bucket:       "newclient,upload",
+			wantOnDisk:   false,
+			wantErrors:   0,
+			wantDeferred: 0,
+		},
+		{
+			name:         "upload fails: files kept on disk but still acknowledged",
+			bucket:       "newclient,upload,failupload",
+			wantOnDisk:   true,
+			wantErrors:   2, // uploadAttempts
+			wantDeferred: 1,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			setupDataDir(t)
+			errorsBefore := testutil.ToFloat64(jostlerUploadErrors.WithLabelValues("foo1"))
+			deferredBefore := testutil.ToFloat64(jostlerBundlesDeferred.WithLabelValues("foo1"))
+
+			wdClient, err := testhelper.WatchDirNew("/some/path")
+			if err != nil {
+				t.Fatalf("testhelper.WatchDirNew() = %v, want nil", err)
+			}
+			wdClient.WatchChan() <- watchdir.WatchEvent{Path: validFile}
+			wdClient.WatchChan() <- watchdir.WatchEvent{Path: invalidFile}
+			stClient, err := testhelper.NewClient(context.Background(), test.bucket)
+			if err != nil {
+				t.Fatalf("testhelper.NewClient() = %v, wanted nil", err)
+			}
+			gcsConf := GCSConfig{
+				GCSClient: stClient,
+				Bucket:    test.bucket,
+				DataDir:   "testdata/autoload/v1/experiment/datatype",
+				IndexDir:  "testdata/autoload/v1/experiment/index1",
+				BaseID:    "some-string",
+			}
+			bundleConf := BundleConfig{
+				Datatype: "foo1",
+				SpoolDir: "testdata/spool/jostler/foo1",
+				SizeMax:  20 * 1024 * 1024,
+				AgeMax:   200 * time.Millisecond, // upload is triggered by age
+			}
+			ubClient, err := New(context.Background(), wdClient, gcsConf, bundleConf)
+			if err != nil {
+				t.Fatalf("New() = %v, want nil", err)
+			}
+
+			ctx, cancel := context.WithCancel(context.Background())
+			done := make(chan struct{})
+			go func() {
+				ubClient.BundleAndUpload(ctx)
+				close(done)
+			}()
+
+			// The upload (and any retries) completes in the background;
+			// the acknowledgement is the signal that it is finished.
+			var acked []string
+			select {
+			case acked = <-wdClient.Acks():
+			case <-time.After(5 * time.Second):
+				t.Fatal("timed out waiting for the bundle's files to be acknowledged")
+			}
+			cancel()
+			<-done
+
+			wantAcked := map[string]bool{validFile: true, invalidFile: true}
+			if len(acked) != len(wantAcked) {
+				t.Errorf("acknowledged %v, want %v", acked, wantAcked)
+			}
+			for _, f := range acked {
+				if !wantAcked[f] {
+					t.Errorf("unexpected acknowledged file %v", f)
+				}
+			}
+			_, statErr := os.Stat(validFile)
+			if gotOnDisk := statErr == nil; gotOnDisk != test.wantOnDisk {
+				t.Errorf("%v on disk = %v, want %v", validFile, gotOnDisk, test.wantOnDisk)
+			}
+			if got := testutil.ToFloat64(jostlerUploadErrors.WithLabelValues("foo1")) - errorsBefore; got != test.wantErrors {
+				t.Errorf("jostler_upload_errors_total increased by %v, want %v", got, test.wantErrors)
+			}
+			if got := testutil.ToFloat64(jostlerBundlesDeferred.WithLabelValues("foo1")) - deferredBefore; got != test.wantDeferred {
+				t.Errorf("jostler_bundles_deferred_total increased by %v, want %v", got, test.wantDeferred)
+			}
+		})
+	}
 }
