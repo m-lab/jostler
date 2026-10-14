@@ -151,6 +151,12 @@ func (w *WatchDir) WatchAckChan() chan<- []string {
 	return w.watchAckChan
 }
 
+// Acks returns the receiving end of the acknowledgement channel so tests
+// can observe which files the client has acknowledged.
+func (w *WatchDir) Acks() <-chan []string {
+	return w.watchAckChan
+}
+
 // WatchAndNotify watches a directory (and possibly all its subdirectories)
 // for the configured events and sends the pathnames of the events it received
 // through the configured channel.

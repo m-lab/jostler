@@ -104,11 +104,30 @@ var (
 	weekDays   = 7   // entries in the map
 	numUploads = 100 // concurrent uploads
 
+	// Retry policy for uploading a bundle (or its index) to GCS. The
+	// delay doubles after each failed attempt. After the last attempt
+	// fails, the bundle's files are handed back to the directory watcher
+	// (see uploadInBackground) rather than retried further in memory.
+	uploadAttempts   = 3
+	uploadRetryDelay = 30 * time.Second
+
 	jostlerBytesPerBundle = promauto.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Name:    "jostler_bytes_per_bundle",
 			Help:    "The number of bytes in each JSONL bundle jostler has uploaded",
 			Buckets: []float64{1e2, 1e3, 1e4, 1e5, 1e6, 1e7, 1e8},
+		},
+		[]string{"datatype"})
+	jostlerUploadErrors = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "jostler_upload_errors_total",
+			Help: "The number of failed attempts to upload a JSONL bundle or its index to GCS",
+		},
+		[]string{"datatype"})
+	jostlerBundlesDeferred = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "jostler_bundles_deferred_total",
+			Help: "The number of JSONL bundles that could not be uploaded after all retries and whose files were left on disk to be bundled again later",
 		},
 		[]string{"datatype"})
 
@@ -297,6 +316,10 @@ func (ub *UploadBundle) uploadAgedBundle(ctx context.Context, jb *jsonlbundle.JS
 		return
 	}
 	ub.uploadBundle(ctx, jb)
+	// uploadBundle() recorded this bundle in the upload bundles map so
+	// that its age timer would be a no-op, but the age timer is what got
+	// us here, so nothing else will ever remove the entry.
+	delete(ub.uploadBundles, jb.Timestamp)
 }
 
 // uploadBundle adds the given bundle (which should be active) to the
@@ -324,37 +347,72 @@ func (ub *UploadBundle) uploadBundle(ctx context.Context, jb *jsonlbundle.JSONLB
 // uploadInBackground starts the process of uploading the specified
 // measurement data (JSONL bundle) and its associated index in the
 // background.
+//
+// If the bundle cannot be uploaded after all retries, its files are left
+// on the local filesystem and acknowledged to the directory watcher
+// anyway. Acknowledging makes the watcher forget the files, so its
+// periodic scan for missed files will notify us about them again once
+// they are older than the configured missed age, and they will be
+// bundled and uploaded again. Without this, the files would stay on disk
+// but never be retried until the next restart.
 func (ub *UploadBundle) uploadInBackground(ctx context.Context, jb *jsonlbundle.JSONLBundle, ack bool) {
 	go func(jb *jsonlbundle.JSONLBundle) {
-		var err error
-		// Upload data bundle.
+		files := append(jb.IndexFilenames(), jb.BadFiles...)
+
+		// Upload data bundle, then its index.
 		objPath := filepath.Join(jb.BundleDir, jb.BundleName)
 		contents := []byte(strings.Join(jb.Lines, "\n"))
-		if err = gzipAndUpload(ctx, ub.gcsConf.GCSClient, objPath, jb.Datatype, contents); err != nil {
-			log.Printf("ERROR: data bundle %v: %v\n", jb.Description(), err)
-			return
+		err := ub.uploadWithRetry(ctx, jb, objPath, jb.Datatype, contents)
+		if err == nil {
+			objPath = filepath.Join(jb.IndexDir, jb.IndexName)
+			contents, err = jb.MarshalIndex()
+			if err != nil {
+				err = fmt.Errorf("failed to marshal index: %w", err)
+			} else {
+				err = ub.uploadWithRetry(ctx, jb, objPath, "index1", contents)
+			}
 		}
 
-		// Upload index bundle.
-		objPath = filepath.Join(jb.IndexDir, jb.IndexName)
-		contents, err = jb.MarshalIndex()
 		if err != nil {
-			log.Printf("ERROR: failed to marshal index for bundle %v: %v\n", jb.Description(), err)
-			return
-		}
-		if err = gzipAndUpload(ctx, ub.gcsConf.GCSClient, objPath, "index1", contents); err != nil {
-			log.Printf("ERROR: index bundle %v: %v\n", jb.Description(), err)
-			return
+			log.Printf("ERROR: giving up on %v: %v; leaving its %d files on disk to be bundled again later\n", jb.Description(), err, len(files))
+			jostlerBundlesDeferred.WithLabelValues(jb.Datatype).Inc()
+		} else {
+			// Remove uploaded files from the local filesystem.
+			jb.RemoveLocalFiles()
 		}
 
-		// Remove uploaded files from the local filesystem.
-		jb.RemoveLocalFiles()
-
-		// Tell directory watcher we're done with these files.
+		// Tell directory watcher we're done with these files, whether
+		// they were uploaded or are to be picked up again later.
 		if ack {
-			ub.wdClient.WatchAckChan() <- append(jb.IndexFilenames(), jb.BadFiles...)
+			ub.wdClient.WatchAckChan() <- files
 		}
 	}(jb)
+}
+
+// uploadWithRetry uploads the given contents, retrying failed attempts
+// with exponential backoff according to the retry policy above. It gives
+// up early if the context is canceled.
+func (ub *UploadBundle) uploadWithRetry(ctx context.Context, jb *jsonlbundle.JSONLBundle, objPath, datatype string, contents []byte) error {
+	delay := uploadRetryDelay
+	var err error
+	for attempt := 1; attempt <= uploadAttempts; attempt++ {
+		err = gzipAndUpload(ctx, ub.gcsConf.GCSClient, objPath, datatype, contents)
+		if err == nil {
+			return nil
+		}
+		jostlerUploadErrors.WithLabelValues(jb.Datatype).Inc()
+		if attempt == uploadAttempts {
+			break
+		}
+		log.Printf("ERROR: %v (attempt %d of %d): %v; retrying in %v\n", objPath, attempt, uploadAttempts, err, delay)
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("%v: %w", err, ctx.Err())
+		case <-time.After(delay):
+		}
+		delay *= 2
+	}
+	return fmt.Errorf("%v (after %d attempts): %w", objPath, uploadAttempts, err)
 }
 
 // gzipAndUpload compresses the specified contents and uploads it via
