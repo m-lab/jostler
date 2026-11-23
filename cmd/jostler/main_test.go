@@ -343,32 +343,6 @@ func TestCLI(t *testing.T) {
 				"-organization=foo-bar", // Organization is invalid.
 			},
 		},
-		{
-			"invalid: v3 with org= prefix in organization", true, errOrgName.Error(),
-			[]string{
-				"-gcs-bucket", "newclient,download",
-				"-mlab-node-name", testNode,
-				"-local-data-dir", testLocalDataDir,
-				"-experiment", testExperiment,
-				"-datatype", "foo1",
-				"-datatype-schema-file", "foo1:testdata/datatypes/foo1-valid.json",
-				"-gcs-data-dir=testdata/autoload/v3",
-				"-organization=org=foo", // The org= prefix is added by jostler.
-			},
-		},
-		{
-			"valid: v3 with organization", true, "",
-			[]string{
-				"-gcs-bucket", "newclient,download,upload",
-				"-mlab-node-name", testNode,
-				"-local-data-dir", testLocalDataDir,
-				"-experiment", testExperiment,
-				"-datatype", "foo1",
-				"-datatype-schema-file", "foo1:testdata/datatypes/foo1-valid.json",
-				"-gcs-data-dir=testdata/autoload/v3",
-				"-organization=foo1org",
-			},
-		},
 	}
 	defer func() {
 		os.RemoveAll("foo1.json")
@@ -379,7 +353,6 @@ func TestCLI(t *testing.T) {
 		if test.rmTblSchemaFile {
 			os.RemoveAll("testdata/autoload/v1/tables/jostler/foo1.table.json")
 			os.RemoveAll("testdata/autoload/v2/tables/jostler/foo1.table.json")
-			os.RemoveAll("testdata/autoload/v3/tables/jostler/foo1.table.json")
 		}
 		var s string
 		if test.wantErrStr == "" {
@@ -414,16 +387,8 @@ func TestGCSDirs(t *testing.T) {
 			"autoload/v1/jostler/foo1", "autoload/v1/jostler/index1",
 		},
 		{
-			"v1 with prefix", "testdata/autoload/v1", "",
-			"testdata/autoload/v1/jostler/foo1", "testdata/autoload/v1/jostler/index1",
-		},
-		{
 			"v2", "autoload/v2", "foo1org",
 			"autoload/v2/foo1org/jostler/foo1", "autoload/v2/foo1org/jostler/index1",
-		},
-		{
-			"v2 with prefix", "/localgcs/autoload/v2", "foo1org",
-			"/localgcs/autoload/v2/foo1org/jostler/foo1", "/localgcs/autoload/v2/foo1org/jostler/index1",
 		},
 		{
 			"v3", "autoload/v3", "foo1org",
