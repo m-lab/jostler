@@ -383,20 +383,32 @@ func TestGCSDirs(t *testing.T) {
 		wantIndexDir string
 	}{
 		{
-			"v1", "autoload/v1", "",
-			"autoload/v1/jostler/foo1", "autoload/v1/jostler/index1",
+			name:         "v1",
+			dataDir:      "autoload/v1",
+			org:          "",
+			wantDataDir:  "autoload/v1/jostler/foo1",
+			wantIndexDir: "autoload/v1/jostler/index1",
 		},
 		{
-			"v2", "autoload/v2", "foo1org",
-			"autoload/v2/foo1org/jostler/foo1", "autoload/v2/foo1org/jostler/index1",
+			name:         "v2",
+			dataDir:      "autoload/v2",
+			org:          "foo1org",
+			wantDataDir:  "autoload/v2/foo1org/jostler/foo1",
+			wantIndexDir: "autoload/v2/foo1org/jostler/index1",
 		},
 		{
-			"v3", "autoload/v3", "foo1org",
-			"autoload/v3/org=foo1org/jostler/foo1", "autoload/v3/org=foo1org/jostler/index1",
+			name:         "v3",
+			dataDir:      "autoload/v3",
+			org:          "foo1org",
+			wantDataDir:  "autoload/v3/org=foo1org/jostler/foo1",
+			wantIndexDir: "autoload/v3/org=foo1org/jostler/index1",
 		},
 		{
-			"v3 with prefix", "testdata/autoload/v3", "foo1org",
-			"testdata/autoload/v3/org=foo1org/jostler/foo1", "testdata/autoload/v3/org=foo1org/jostler/index1",
+			name:         "v3 with prefix",
+			dataDir:      "testdata/autoload/v3",
+			org:          "foo1org",
+			wantDataDir:  "testdata/autoload/v3/org=foo1org/jostler/foo1",
+			wantIndexDir: "testdata/autoload/v3/org=foo1org/jostler/index1",
 		},
 	}
 	for _, test := range tests {
@@ -422,7 +434,7 @@ func TestV3Upload(t *testing.T) {
 	if err := os.MkdirAll(dateDir, 0o755); err != nil {
 		t.Fatalf("MkdirAll() = %v", err)
 	}
-	// Create a measurement file after jostler has started watching.
+	// Create a measurement file after jostler has (hopefully) started watching.
 	go func() {
 		time.Sleep(time.Second)
 		os.WriteFile(filepath.Join(dateDir, "v3.json"), []byte(`{"Field1":3}`), 0o666)
