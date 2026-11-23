@@ -167,8 +167,10 @@ func usesAutoload(dataDir, version string) bool {
 // The index directory has the same layout with index1 instead of
 // <datatype>.
 func gcsDirs(dataDir, org, exp, datatype string) (dataPath, indexPath string) {
-	// Command line validation guarantees that the organization is empty
-	// if and only if autoload/v1 conventions are used.
+	// The organization must be empty if and only if autoload/v1 conventions
+	// are used. Flag validation enforces this today. Check it here too, so a
+	// future caller that skips validation fails loudly instead of uploading
+	// to the wrong directory.
 	if usesAutoload(dataDir, "v1") != (org == "") {
 		panic(fmt.Sprintf("gcsDirs: organization %q is not valid for data directory %q", org, dataDir))
 	}
