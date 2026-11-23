@@ -166,7 +166,7 @@ func usesAutoload(dataDir, version string) bool {
 //
 // The index directory has the same layout with index1 instead of
 // <datatype>.
-func gcsDirs(dataDir, org, exp, datatype string) (data, index string) {
+func gcsDirs(dataDir, org, exp, datatype string) (dataPath, indexPath string) {
 	if usesAutoload(dataDir, "v3") {
 		org = "org=" + org
 	}
