@@ -2,16 +2,22 @@
 package main
 
 import (
+	"compress/gzip"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/m-lab/go/flagx"
 	"github.com/m-lab/go/prometheusx"
+	"github.com/m-lab/jostler/api"
 	"github.com/m-lab/jostler/internal/schema"
 	"github.com/m-lab/jostler/internal/testhelper"
 )
@@ -311,6 +317,58 @@ func TestCLI(t *testing.T) {
 				"-upload-schema=false",
 			},
 		},
+		// autoload/v3 flag and configuration testing.
+		{
+			"invalid: v3 without organization", true, errAutoloadOrgRequired.Error(),
+			[]string{
+				"-gcs-bucket", "newclient,download",
+				"-mlab-node-name", testNode,
+				"-local-data-dir", testLocalDataDir,
+				"-experiment", testExperiment,
+				"-datatype", "foo1",
+				"-datatype-schema-file", "foo1:testdata/datatypes/foo1-valid.json",
+				"-gcs-data-dir=testdata/autoload/v3",
+			},
+		},
+		{
+			"invalid: v3 with hyphen in organization", true, errOrgName.Error(),
+			[]string{
+				"-gcs-bucket", "newclient,download",
+				"-mlab-node-name", testNode,
+				"-local-data-dir", testLocalDataDir,
+				"-experiment", testExperiment,
+				"-datatype", "foo1",
+				"-datatype-schema-file", "foo1:testdata/datatypes/foo1-valid.json",
+				"-gcs-data-dir=testdata/autoload/v3",
+				"-organization=foo-bar", // Organization is invalid.
+			},
+		},
+		{
+			"invalid: v3 with org= prefix in organization", true, errOrgName.Error(),
+			[]string{
+				"-gcs-bucket", "newclient,download",
+				"-mlab-node-name", testNode,
+				"-local-data-dir", testLocalDataDir,
+				"-experiment", testExperiment,
+				"-datatype", "foo1",
+				"-datatype-schema-file", "foo1:testdata/datatypes/foo1-valid.json",
+				"-gcs-data-dir=testdata/autoload/v3",
+				"-organization=org=foo", // The org= prefix is added by jostler.
+			},
+		},
+		{
+			"valid: v3 with organization", true, "",
+			[]string{
+				"-gcs-bucket", "newclient,download,upload",
+				"-mlab-node-name", testNode,
+				"-local-data-dir", testLocalDataDir,
+				"-experiment", testExperiment,
+				"-datatype", "foo1",
+				"-datatype-schema-file", "foo1:testdata/datatypes/foo1-valid.json",
+				"-gcs-data-dir=testdata/autoload/v3",
+				"-organization=foo1org",
+			},
+		},
 	}
 	defer func() {
 		os.RemoveAll("foo1.json")
@@ -321,6 +379,7 @@ func TestCLI(t *testing.T) {
 		if test.rmTblSchemaFile {
 			os.RemoveAll("testdata/autoload/v1/tables/jostler/foo1.table.json")
 			os.RemoveAll("testdata/autoload/v2/tables/jostler/foo1.table.json")
+			os.RemoveAll("testdata/autoload/v3/tables/jostler/foo1.table.json")
 		}
 		var s string
 		if test.wantErrStr == "" {
@@ -337,6 +396,115 @@ func TestCLI(t *testing.T) {
 			args = append(args, "-verbose")
 		}
 		callMain(t, args, test.wantErrStr)
+	}
+}
+
+// TestGCSDirs tests the GCS data and index directories of each autoload
+// version.
+func TestGCSDirs(t *testing.T) {
+	tests := []struct {
+		name         string
+		dataDir      string
+		org          string
+		wantDataDir  string
+		wantIndexDir string
+	}{
+		{
+			"v1", "autoload/v1", "",
+			"autoload/v1/jostler/foo1", "autoload/v1/jostler/index1",
+		},
+		{
+			"v1 with prefix", "testdata/autoload/v1", "",
+			"testdata/autoload/v1/jostler/foo1", "testdata/autoload/v1/jostler/index1",
+		},
+		{
+			"v2", "autoload/v2", "foo1org",
+			"autoload/v2/foo1org/jostler/foo1", "autoload/v2/foo1org/jostler/index1",
+		},
+		{
+			"v2 with prefix", "/localgcs/autoload/v2", "foo1org",
+			"/localgcs/autoload/v2/foo1org/jostler/foo1", "/localgcs/autoload/v2/foo1org/jostler/index1",
+		},
+		{
+			"v3", "autoload/v3", "foo1org",
+			"autoload/v3/org=foo1org/jostler/foo1", "autoload/v3/org=foo1org/jostler/index1",
+		},
+		{
+			"v3 with prefix", "testdata/autoload/v3", "foo1org",
+			"testdata/autoload/v3/org=foo1org/jostler/foo1", "testdata/autoload/v3/org=foo1org/jostler/index1",
+		},
+	}
+	for _, test := range tests {
+		gotDataDir, gotIndexDir := gcsDirs(test.dataDir, test.org, testExperiment, testDatatype)
+		if gotDataDir != test.wantDataDir || gotIndexDir != test.wantIndexDir {
+			t.Fatalf("%s: gcsDirs() = %v, %v, wanted %v, %v", test.name, gotDataDir, gotIndexDir, test.wantDataDir, test.wantIndexDir)
+		}
+	}
+}
+
+// TestV3Upload runs jostler with autoload/v3 conventions and verifies
+// that the data bundle and its index are uploaded to the org=<name>
+// directory and that ArchiveURL of the bundled row has the same layout.
+func TestV3Upload(t *testing.T) {
+	addr := ":0"
+	prometheusx.ListenAddress = &addr
+	// The directory watcher notifies with absolute pathnames, so the
+	// local data directory has to be absolute for files to be bundled.
+	tmpDir := t.TempDir()
+	const date = "2026/11/23"
+	gcsDir := filepath.Join(tmpDir, "autoload/v3")
+	dateDir := filepath.Join(tmpDir, "spool", testExperiment, testDatatype, date)
+	if err := os.MkdirAll(dateDir, 0o755); err != nil {
+		t.Fatalf("MkdirAll() = %v", err)
+	}
+	// Create a measurement file after jostler has started watching.
+	go func() {
+		time.Sleep(time.Second)
+		os.WriteFile(filepath.Join(dateDir, "v3.json"), []byte(`{"Field1":3}`), 0o666)
+	}()
+	callMain(t, []string{
+		"-gcs-bucket", "newclient,download,upload",
+		"-mlab-node-name", testNode,
+		"-local-data-dir", filepath.Join(tmpDir, "spool"),
+		"-experiment", testExperiment,
+		"-datatype", "foo1",
+		"-datatype-schema-file", "foo1:testdata/datatypes/foo1-valid.json",
+		"-gcs-data-dir", gcsDir,
+		"-organization=foo1org",
+		"-bundle-age-max", "1s",
+		"-test-interval", "4s",
+		"-gcs-local-disk",
+	}, "")
+
+	const wantDir = "autoload/v3/org=foo1org/jostler/foo1/" + date + "/"
+	for _, dir := range []string{"index1", "foo1"} {
+		objs, err := filepath.Glob(filepath.Join(gcsDir, "org=foo1org", testExperiment, dir, date, "*.jsonl.gz"))
+		if err != nil || len(objs) != 1 {
+			t.Fatalf("Glob(%v) = %v, %v, wanted one object", dir, objs, err)
+		}
+		if dir == "index1" {
+			continue
+		}
+		f, err := os.Open(objs[0])
+		if err != nil {
+			t.Fatalf("Open() = %v", err)
+		}
+		defer f.Close()
+		zr, err := gzip.NewReader(f)
+		if err != nil {
+			t.Fatalf("NewReader() = %v", err)
+		}
+		row, err := io.ReadAll(zr)
+		if err != nil {
+			t.Fatalf("ReadAll() = %v", err)
+		}
+		var stdCols struct{ Archiver api.ArchiverV0 }
+		if err := json.Unmarshal(row, &stdCols); err != nil {
+			t.Fatalf("Unmarshal() = %v", err)
+		}
+		if !strings.Contains(stdCols.Archiver.ArchiveURL, wantDir) {
+			t.Fatalf("ArchiveURL = %v, wanted it to contain %v", stdCols.Archiver.ArchiveURL, wantDir)
+		}
 	}
 }
 

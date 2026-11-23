@@ -68,7 +68,7 @@ func initFlags() {
 	flag.StringVar(&bucket, "gcs-bucket", "", "required - GCS bucket name")
 	flag.StringVar(&gcsDataDir, "gcs-data-dir", "autoload/v1", "home directory in GCS bucket under which bundles will be uploaded")
 	flag.Var(&mlabNodeName, "mlab-node-name", "required - node name, specified directly or via @file or via MLAB_NODE_NAME env variable")
-	flag.StringVar(&organization, "organization", "", "the organization name; required for autoload/v2 conventions")
+	flag.StringVar(&organization, "organization", "", "the organization name; required for autoload/v2 and autoload/v3 conventions")
 	flag.BoolVar(&uploadSchema, "upload-schema", true, "upload the local table schema if necessary")
 
 	// Flags related to bundles.
@@ -153,10 +153,10 @@ func parseAndValidateCLI() error {
 	if err := validateSchemaFlags(); err != nil {
 		return err
 	}
-	if !strings.Contains(gcsDataDir, "autoload/v1") && organization == "" {
+	if !usesAutoload(gcsDataDir, "v1") && organization == "" {
 		return errAutoloadOrgRequired
 	}
-	if strings.Contains(gcsDataDir, "autoload/v1") && organization != "" {
+	if usesAutoload(gcsDataDir, "v1") && organization != "" {
 		return errAutoloadOrgInvalid
 	}
 	if organization != "" && !orgNameRegex.MatchString(organization) {

@@ -9,6 +9,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/rjeczalik/notify"
@@ -148,6 +149,31 @@ func daemonMode() error {
 	return err
 }
 
+// usesAutoload returns true if the given GCS data directory follows the
+// given version of autoload conventions (e.g., "v1").  It is a substring
+// match because the data directory can have a prefix (e.g.,
+// testdata/autoload/v1).
+func usesAutoload(dataDir, version string) bool {
+	return strings.Contains(dataDir, "autoload/"+version)
+}
+
+// gcsDirs returns the GCS directories under which the data bundles and
+// the index bundles of the given datatype will be uploaded:
+//
+//	autoload/v1/<experiment>/<datatype>
+//	autoload/v2/<organization>/<experiment>/<datatype>
+//	autoload/v3/org=<organization>/<experiment>/<datatype>
+//
+// The index directory has the same layout with index1 instead of
+// <datatype>.
+func gcsDirs(dataDir, org, exp, datatype string) (string, string) {
+	if usesAutoload(dataDir, "v3") {
+		org = "org=" + org
+	}
+	// For autoload/v1, org is empty and is dropped by Join().
+	return filepath.Join(dataDir, org, exp, datatype), filepath.Join(dataDir, org, exp, "index1")
+}
+
 // startWatcher starts a directory watcher goroutine that watches the
 // specified directory and notifies its client of new (and potentially
 // missed) files.
@@ -189,11 +215,12 @@ func startUploader(mainCtx context.Context, mainCancel context.CancelFunc, statu
 	if err != nil {
 		return nil, fmt.Errorf("failed to create storage client: %w", err)
 	}
+	dataDir, indexDir := gcsDirs(gcsDataDir, organization, experiment, datatype)
 	gcsConf := uploadbundle.GCSConfig{
 		GCSClient: stClient,
 		Bucket:    bucket,
-		DataDir:   filepath.Join(gcsDataDir, organization, experiment, datatype),
-		IndexDir:  filepath.Join(gcsDataDir, organization, experiment, "index1"),
+		DataDir:   dataDir,
+		IndexDir:  indexDir,
 		BaseID:    fmt.Sprintf("%s-%s-%s-%s", datatype, nameParts.Machine, nameParts.Site, experiment),
 	}
 	bundleConf := uploadbundle.BundleConfig{
